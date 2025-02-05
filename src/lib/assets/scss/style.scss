@@ -6,10 +6,35 @@ Email: support@coderthemes.com
 File: style Css File
 */
 
-
+// Tailwind directives
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .text-primary {
+    color: #605bff;
+    font-weight: 600;
+  }
+
+  .hover\:text-primary:hover {
+    color: #605bff;
+  }
+
+  .bg-primary {
+    background-color: #605bff;
+  }
+
+  .font-body {
+    // Your font-body styles
+  }
+}
+
+@layer base {
+  body {
+    @apply font-body;
+  }
+}
 
 // Custom
 @import "custom/reboot";
@@ -17,19 +42,9 @@ File: style Css File
 @import "custom/navbar";
 @import "custom/gallery";
 
-
-.bg-primary {
-   
-    background-color: #605bff;
-}
 .navbar-nav .nav-item .nav-link:is(.active, :active, :focus, :hover) {
     font-weight: bold;
     color: #605bff;
-}
-.text-primary {
-    
-    color: #605bff;
-    font-weight: 600;
 }
 .font-semibold {
     font-weight: bolder;

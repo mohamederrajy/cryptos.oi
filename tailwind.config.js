@@ -1,42 +1,23 @@
-const colors = require('tailwindcss/colors')
-
-module.exports = {
-    content: [
-        './src/app.html',
-        "./src/**/*.{html,js,svelte,ts}",
-        // "node_modules/@frostui/tailwindcss/dist/*.js",
-        'node_modules/preline/preline.js',
-    ],
-    darkMode: 'class',
+/** @type {import('tailwindcss').Config} */
+export default {
+    content: ['./src/**/*.{html,js,svelte,ts}'],
     theme: {
-
-        container: {
-            center: true,
-            padding: {
-                DEFAULT: '1rem',
-                sm: '1rem',
-                md: '1rem',
-                lg: '1rem',
-                xl: '3rem',
-                '2xl': '13rem',
-            },
-        },
-
-        fontFamily: {
-            'body': ['Be Vietnam Pro', 'sans-serif'],
-        },
-
         extend: {
-            colors: {
-                'primary': colors.blue[600],
+            fontFamily: {
+                'body': ['Inter', 'sans-serif'],
             },
+            colors: {
+                'primary': '#605bff',
+                'gray': {
+                    50: '#F9FAFB',
+                    100: '#F3F4F6',
+                    200: '#E5E7EB',
+                    700: '#374151',
+                    800: '#1F2937',
+                    900: '#111827',
+                }
+            }
         },
     },
-
-    plugins: [
-        // require('@frostui/tailwindcss/plugin'),
-        require('@tailwindcss/forms'),
-        require('@tailwindcss/typography'),
-        require('preline/plugin'),
-    ],
+    plugins: [],
 }

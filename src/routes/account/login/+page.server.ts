@@ -1,22 +1,32 @@
-import { redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
+import { fail, redirect } from '@sveltejs/kit';
+import type { Actions } from './$types';
 
-export const load: PageServerLoad = async ({ locals, cookies }) => {
-    // Check if user is already logged in
-    const token = cookies.get('authToken');
-    const userStr = cookies.get('user');
+export const actions = {
+    default: async ({ request, cookies }) => {
+        const data = await request.formData();
+        const email = data.get('email');
+        const password = data.get('password');
+        const rememberMe = data.get('rememberMe');
 
-    // If there's any session data, redirect to dashboard
-    if (token || userStr || locals.user || locals.token) {
-        console.log('✅ Session exists - Keeping user in dashboard');
-        throw redirect(303, '/dashboard');
-    }
-
-    // Only allow access to login if there's no session at all
-    return {
-        headers: {
-            'Cache-Control': 'no-store, must-revalidate',
-            'Pragma': 'no-cache'
+        // Basic validation
+        if (!email || !password) {
+            return fail(400, {
+                error: 'Email and password are required'
+            });
         }
-    };
-};
+
+        try {
+            // Here you would typically:
+            // 1. Validate credentials against your database
+            // 2. Create a session
+            // 3. Set cookies
+            
+            // For now, we'll just redirect to home
+            throw redirect(303, '/');
+        } catch (error) {
+            return fail(500, {
+                error: 'Login failed. Please try again.'
+            });
+        }
+    }
+} satisfies Actions; 

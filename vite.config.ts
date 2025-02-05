@@ -3,6 +3,9 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
 	plugins: [sveltekit()],
+	optimizeDeps: {
+		include: ['lightweight-charts']
+	},
 	server: {
 		proxy: {
 			'/api': {
@@ -10,6 +13,14 @@ export default defineConfig({
 				changeOrigin: true,
 				rewrite: (path) => path.replace(/^\/api/, '')
 			}
+		}
+	},
+	resolve: {
+		dedupe: ['lightweight-charts']
+	},
+	build: {
+		rollupOptions: {
+			external: ['lightweight-charts'],
 		}
 	}
 });

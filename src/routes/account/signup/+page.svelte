@@ -1,2022 +1,691 @@
-<script>
-  import { onMount } from 'svelte';
-  import Select from 'svelte-select';
-  import countries from 'world-countries';
-  import { fade } from 'svelte/transition';
-  import { format } from 'date-fns';
-  
-  let selectContainer;
-  let dropdownOpen = false;
-  let showPassword = false;
-  let selectedCountry = null;
-  let isLoading = false;
-  let formStep = 1;
-  let activeTestimonial = 0;
-  let mouseX = 0;
-  let mouseY = 0;
-  let password = '';
-  let passwordStrength = 0; // 0-4 scale
-  let passwordChecks = {
-    length: false,
-    uppercase: false,
-    lowercase: false,
-    number: false,
-    special: false
-  };
-
-  // Add form data and validation
-  let formData = {
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    password: '',
-    birthDate: '', // Add this line
-    streetAddress: '',
-    city: '',
-    state: '',
-    zip: '',
-    country: null,
-    terms: false
-  };
-
-  let errors = {};
-  let isNotificationVisible = false;  // Changed from showNotification
-  let notificationMessage = '';
-  let notificationType = 'error';
-
-  // Add phone prefix state
-  let selectedPhonePrefix = null;
-  
-  // First, update the phone prefixes data formatting
-  const phonePrefixes = countries
-    .map(country => {
-      try {
-        if (country.idd && country.idd.root) {
-          const root = country.idd.root;
-          let prefixes = [];
-          
-          if (country.idd.suffixes && country.idd.suffixes.length > 0) {
-            prefixes = country.idd.suffixes.map(suffix => ({
-              value: `${root}${suffix}`,
-              label: `${country.flag} ${root}${suffix}`,
-              flag: country.flag || '🏳️',
-              code: `${root}${suffix}`,
-              search: `${root}${suffix} ${country.name.common}`
-            }));
-          } else {
-            prefixes = [{
-              value: root,
-              label: `${country.flag} ${root}`,
-              flag: country.flag || '🏳️',
-              code: root,
-              search: `${root} ${country.name.common}`
-            }];
-          }
-          return prefixes;
+<script lang="ts">
+    import { enhance } from '$app/forms';
+    import { onMount } from 'svelte';
+    
+    // TypeScript declarations
+    declare global {
+        interface Window {
+            grecaptcha: any;
+            onRecaptchaVerify: (token: string) => void;
         }
-        return null;
-      } catch (error) {
-        console.error(`Error processing country: ${country.name?.common}`, error);
-        return null;
-      }
-    })
-    .filter(Boolean)
-    .flat()
-    .filter(prefix => prefix.value.startsWith('+'))
-    .sort((a, b) => {
-      const numA = Number(a.value.replace('+', ''));
-      const numB = Number(b.value.replace('+', ''));
-      return numA - numB;
-    });
-
-  // Keep existing uniquePrefixes definition
-  const uniquePrefixes = phonePrefixes.filter((prefix, index, self) =>
-    index === self.findIndex((p) => p.value === prefix.value)
-  );
-
-  // Email validation function
-  function isValidEmail(email) {
-    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
-    return emailRegex.test(email);
-  }
-
-  function showError(message) {
-    console.error('Error:', message);
-    showNotification(message, 'error');
-  }
-
-  // Add these functions near your other validation functions
-  function formatPhoneNumber(phone) {
-    // Remove all non-digits
-    let cleaned = phone.replace(/\D/g, '');
-    
-    // Format the number based on length
-    if (cleaned.length <= 3) {
-      return cleaned;
-    } else if (cleaned.length <= 6) {
-      return `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
-    } else {
-      return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-    }
-  }
-
-  function isValidPhoneNumber(phone) {
-    // Remove all non-digits for validation
-    const cleaned = phone.replace(/\D/g, '');
-    // Check if it's a valid length (adjust for your needs)
-    return cleaned.length >= 10 && cleaned.length <= 15;
-  }
-
-  // Update validateStep1 to include better phone validation
-  function validateStep1() {
-    errors = {};
-    let isValid = true;
-
-    if (!formData.firstName?.trim()) {
-      errors.firstName = 'First name is required';
-      isValid = false;
-    }
-    if (!formData.lastName?.trim()) {
-      errors.lastName = 'Last name is required';
-      isValid = false;
-    }
-    if (!formData.email?.trim()) {
-      errors.email = 'Email is required';
-      isValid = false;
-    } else if (!isValidEmail(formData.email)) {
-      errors.email = 'Please enter a valid email address';
-      isValid = false;
-    }
-    if (!formData.phone?.trim()) {
-      errors.phone = 'Phone number is required';
-      isValid = false;
-    } else if (!isValidPhoneNumber(formData.phone)) {
-      errors.phone = 'Please enter a valid phone number';
-      isValid = false;
-    }
-    if (!formData.password?.trim()) {
-      errors.password = 'Password is required';
-      isValid = false;
-    } else if (passwordStrength < 3) {
-      errors.password = 'Password is too weak';
-      isValid = false;
-    }
-    if (!formData.birthDate?.trim()) {
-      errors.birthDate = 'Birth date is required';
-      isValid = false;
-    } else {
-      // Check if user is at least 18 years old
-      const birthDate = new Date(formData.birthDate);
-      const today = new Date();
-      const age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      
-      if (age < 18 || (age === 18 && monthDiff < 0)) {
-        errors.birthDate = 'You must be at least 18 years old';
-        isValid = false;
-      }
-    }
-
-    if (!isValid) {
-      showError('Please fill in all required fields correctly');
-    }
-
-    return isValid;
-  }
-
-  function validateStep2() {
-    errors = {};
-    let isValid = true;
-
-    // Log form data for debugging
-    console.log('Form Data:', formData);
-    console.log('Selected Country:', selectedCountry);
-
-    // Validate each field and log the results
-    if (!formData.streetAddress?.trim()) {
-      errors.streetAddress = 'Street address is required';
-      isValid = false;
-      console.log('Street address invalid');
     }
     
-    if (!formData.city?.trim()) {
-      errors.city = 'City is required';
-      isValid = false;
-      console.log('City invalid');
-    }
+    let email = '';
+    let password = '';
+    let confirmPassword = '';
+    let referralCode = '';
+    let isAgreed = false;
+    let isVerified = false;
     
-    if (!formData.state?.trim()) {
-      errors.state = 'State is required';
-      isValid = false;
-      console.log('State invalid');
-    }
+    // Timer state
+    let days = 0;
+    let hours = 0;
+    let minutes = 0;
+    let seconds = 0;
+
+    let sliderValue = 0;
     
-    if (!formData.zip?.trim()) {
-      errors.zip = 'ZIP code is required';
-      isValid = false;
-      console.log('ZIP invalid');
-    }
-    
-    if (!selectedCountry) {
-      errors.country = 'Country is required';
-      isValid = false;
-      console.log('Country invalid');
-    }
-    
-    // Remove terms validation since it's not required by the API
-    // if (!formData.terms) {
-    //   errors.terms = 'You must accept the terms and conditions';
-    //   isValid = false;
-    // }
+    let isDragging = false;
+    let startX = 0;
+    let startLeft = 0;
 
-    console.log('Validation errors:', errors);
-    console.log('Is form valid:', isValid);
+    let showPassword = false;
 
-    if (!isValid) {
-      showError('Please fill in all required fields');
-    }
-
-    return isValid;
-  }
-
-  async function handleNextStep() {
-    if (formStep === 1 && validateStep1()) {
-      // Comment out verification and directly proceed to step 2
-      // await sendVerificationCode();
-      formStep = 2;
-    } else if (formStep === 2 && validateStep2()) {
-      formStep = 3;
-    }
-  }
-
-  async function handleSubmit() {
-    console.log('Starting form submission');
-    
-    if (validateStep2()) {
-      try {
-        isLoading = true;
+    onMount(() => {
+        // Load reCAPTCHA script dynamically
+        const script = document.createElement('script');
+        script.src = 'https://www.google.com/recaptcha/api.js?render=explicit';
+        script.async = true;
+        script.defer = true;
         
-        // Format data exactly as per the example
-        const apiData = {
-          email: formData.email.trim().toLowerCase(),
-          fullName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
-          phoneNumber: selectedPhonePrefix?.value + formData.phone.replace(/\D/g, ''),
-          birthDate: formData.birthDate,
-          password: formData.password,
-          country: selectedCountry?.label,
-          city: formData.city.trim(),
-          countryCode: selectedPhonePrefix?.value,
-          postalCode: formData.zip.trim(),
-          address: formData.streetAddress.trim()
+        script.onload = () => {
+            window.grecaptcha.ready(() => {
+                window.grecaptcha.render('recaptcha', {
+                    'sitekey': '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI', // Replace with your site key
+                    'callback': onRecaptchaVerify,
+                    'theme': 'light',
+                    'size': 'normal'
+                });
+            });
         };
-
-        console.log('API Request Data:', apiData);
-
-        const response = await fetch('https://api.ipsepay.com/auth/register', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify(apiData)
-        });
-
-        const data = await response.json();
-        console.log('API Response:', data);
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Failed to create account');
-        }
-
-        showNotification('Account created successfully!', 'success');
-        window.location.href = '/account/login';
-
-      } catch (error) {
-        console.error('Registration error:', error);
-        showNotification(error.message || 'Failed to create account', 'error');
-      } finally {
-        isLoading = false;
-      }
-    }
-  }
-
-  function handleDropdownOpen() {
-    dropdownOpen = true;
-  }
-
-  function handleDropdownClose() {
-    dropdownOpen = false;
-  }
-
-  // Enhanced country formatting with flags
-  const formattedCountries = countries.map(country => ({
-    value: country.cca2,
-    label: country.name.common,
-    flag: country.flag,
-    item: `<div class="flex items-center gap-2">
-            <span class="text-lg">${country.flag}</span>
-            <span>${country.name.common}</span>
-          </div>`
-  }));
-
-  // Sort countries alphabetically
-  formattedCountries.sort((a, b) => a.label.localeCompare(b.label));
-
-  const testimonials = [
-    {
-      name: "Olga Malinochka",
-      country: "Ukraine",
-      title: "Reliable and Fast Service",
-      text: "IpsePay has transformed how I handle payments for my high-risk business.",
-      avatar: "/images/blog/profile1.jpg",
-      rating: 5
-    },
-    {
-      name: "Emma L",
-      country: "Australia",
-      title: "Exceptional Support",
-      text: "The 24/7 support team at IpsePay is always there to help.",
-      avatar: "/images/4profi.webp",
-      rating: 5
-    }
-  ];
-
-  const features = [
-    { title: 'Lightning Fast', description: 'Process payments instantly' },
-    { title: 'Bank-Grade Security', description: 'Enterprise-level protection' },
-    { title: 'Global Coverage', description: 'Accept payments worldwide' },
-    { title: 'Real-time Analytics', description: 'Track your growth' }
-  ];
-
-  const stats = [
-    { value: '$2B+', label: 'Processed' },
-    { value: '150+', label: 'Countries' },
-    { value: '99.9%', label: 'Uptime' }
-  ];
-
-  function handleMouseMove(event) {
-    mouseX = event.clientX / window.innerWidth;
-    mouseY = event.clientY / window.innerHeight;
-  }
-
-  const benefits = [
-    {
-      icon: '🚀',
-      title: 'Instant Setup',
-      description: 'Get started in minutes'
-    },
-    {
-      icon: '🔒',
-      title: 'Secure & Compliant',
-      description: 'PCI DSS Level 1'
-    },
-    {
-      icon: '🌍',
-      title: 'Global Reach',
-      description: '150+ Countries'
-    }
-  ];
-
-  // Password strength checker
-  function checkPasswordStrength(pass) {
-    let strength = 0;
-    
-    // Reset checks
-    passwordChecks = {
-      length: false,
-      uppercase: false,
-      lowercase: false,
-      number: false,
-      special: false
-    };
-
-    // Length check
-    if (pass.length >= 8) {
-      strength += 1;
-      passwordChecks.length = true;
-    }
-
-    // Uppercase check
-    if (/[A-Z]/.test(pass)) {
-      strength += 1;
-      passwordChecks.uppercase = true;
-    }
-
-    // Lowercase check
-    if (/[a-z]/.test(pass)) {
-      strength += 1;
-      passwordChecks.lowercase = true;
-    }
-
-    // Number check
-    if (/[0-9]/.test(pass)) {
-      strength += 1;
-      passwordChecks.number = true;
-    }
-
-    // Special character check
-    if (/[^A-Za-z0-9]/.test(pass)) {
-      strength += 1;
-      passwordChecks.special = true;
-    }
-
-    passwordStrength = strength;
-  }
-
-  // Get strength label and color
-  $: strengthLabel = {
-    0: 'Very Weak',
-    1: 'Weak',
-    2: 'Fair',
-    3: 'Good',
-    4: 'Strong',
-    5: 'Very Strong'
-  }[passwordStrength];
-
-  $: strengthColor = {
-    0: 'bg-gray-200',
-    1: 'bg-red-400',
-    2: 'bg-orange-400',
-    3: 'bg-yellow-400',
-    4: 'bg-green-400',
-    5: 'bg-green-500'
-  }[passwordStrength];
-
-  // Add verification state variables
-  let isVerifying = false;
-  let verificationCode = '';
-  let sentVerificationCode = '';
-  let verificationError = '';
-  let timeLeft = 0;
-  let resendTimer;
-  let isSendingCode = false;
-
-  // Function to generate verification code
-  function generateVerificationCode() {
-      return Math.floor(100000 + Math.random() * 900000).toString();
-  }
-
-  // Function to send verification code
-  async function sendVerificationCode() {
-      try {
-          isSendingCode = true;
-          verificationError = '';
-          sentVerificationCode = generateVerificationCode();
-          
-          console.log('Starting verification process for:', formData.email);
-
-          const response = await fetch('/api/send-verification', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                  email: formData.email,
-                  code: sentVerificationCode
-              })
-          });
-
-          const data = await response.json();
-          console.log('Server response:', data);
-
-          if (!response.ok) {
-              throw new Error(data.error || data.details || 'Failed to send verification code');
-          }
-
-          isVerifying = true;
-          timeLeft = 180;
-          startResendTimer();
-          
-          showNotification('Verification code sent to your email', 'success');
-      } catch (error) {
-          console.error('Verification error:', {
-              message: error.message,
-              name: error.name,
-              stack: error.stack
-          });
-          showError(`Failed to send code: ${error.message}`);
-          isVerifying = false;
-      } finally {
-          isSendingCode = false;
-      }
-  }
-
-  // Verify code
-  async function verifyCode() {
-    try {
-        if (!verificationCode || verificationCode.length !== 6) {
-            throw new Error('Please enter the complete verification code');
-        }
-
-        const response = await fetch('/api/send-verification', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                email: formData.email,
-                code: verificationCode
-            })
-        });
-
-        const data = await response.json();
-        console.log('Verification response:', data);
-
-        if (!response.ok) {
-            throw new Error(data.error || 'Verification failed');
-        }
-
-        if (data.success) {
-            isVerifying = false;
-            clearInterval(resendTimer);
-            formStep = 2;
-            showNotification('Email verified successfully', 'success');
-        } else {
-            throw new Error(data.error || 'Verification failed');
-        }
-    } catch (error) {
-        console.error('Verification error:', error);
-        verificationError = error.message;
-        showError(error.message);
-    }
-}
-
-  // Timer for resend cooldown
-  function startResendTimer() {
-      clearInterval(resendTimer);
-      resendTimer = setInterval(() => {
-          if (timeLeft > 0) {
-              timeLeft--;
-          } else {
-              clearInterval(resendTimer);
-          }
-      }, 1000);
-  }
-
-  // Format remaining time
-  function formatTime(seconds) {
-      const mins = Math.floor(seconds / 60);
-      const secs = seconds % 60;
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
-  }
-
-  // Add cleanup on unmount
-  onMount(() => {
-      return () => clearInterval(resendTimer);
-  });
-
-  // Add this to your template
-  $: isNextButtonDisabled = formStep === 1 && isSendingCode;
-
-  // Add this notification function
-  function showNotification(message, type = 'success') {
-    notificationMessage = message;
-    notificationType = type;
-    isNotificationVisible = true;  // Use the new variable name
-    setTimeout(() => {
-      isNotificationVisible = false;  // Use the new variable name
-    }, 5000);
-  }
-
-  // Add phone input handler
-  function handlePhoneInput(event) {
-    let input = event.target;
-    let cursorPosition = input.selectionStart;
-    let oldValue = input.value;
-    let newValue = formatPhoneNumber(input.value);
-    
-    // Only update if the format actually changed
-    if (oldValue !== newValue) {
-      formData.phone = newValue;
-      
-      // Adjust cursor position for formatting characters
-      let oldLength = oldValue.length;
-      let newLength = newValue.length;
-      let offset = newLength - oldLength;
-      
-      // Wait for the next tick to set cursor position
-      setTimeout(() => {
-        input.setSelectionRange(cursorPosition + offset, cursorPosition + offset);
-      }, 0);
-    }
-  }
-
-  // Add this binding to update formData when country is selected
-  $: if (selectedCountry) {
-    formData.country = selectedCountry.label;
-  } else {
-    formData.country = null;
-  }
-
-  // Add reactive statement to log form data changes
-  $: {
-    console.log('Form data updated:', formData);
-  }
-
-  // Add this to help with debugging
-  onMount(() => {
-    console.log('Environment check:', {
-        mode: import.meta.env.MODE,
-        dev: import.meta.env.DEV,
-        prod: import.meta.env.PROD
+        
+        document.head.appendChild(script);
+        
+        return () => {
+            document.head.removeChild(script);
+        };
     });
-  });
 
-  let showDatePicker = false;
-  let selectedDate = null;
-  
-  // Function to format date for display
-  function formatDate(date) {
-      return date ? format(new Date(date), 'MMM dd, yyyy') : '';
-  }
+    function updateTimer() {
+        const now = new Date();
+        const target = new Date('2024-12-31');
+        const diff = target.getTime() - now.getTime();
 
-  // Function to check if date is in the past
-  function isPastDate(date) {
-      return new Date(date) < new Date();
-  }
+        days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    }
 
-  // Function to handle date selection
-  function handleDateSelect(date) {
-      selectedDate = date.toISOString().split('T')[0];
-      formData.birthDate = selectedDate;
-      showDatePicker = false;
-  }
+    function onRecaptchaVerify(token: string) {
+        isVerified = true;
+    }
 
-  // Add these variables to your existing script
-  let currentMonth = new Date().getMonth();
-  let currentYear = new Date().getFullYear();
-  
-  const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-  
-  // Generate years (100 years back from current year)
-  const years = Array.from({ length: 100 }, (_, i) => currentYear - i);
+    function startDragging(event: MouseEvent) {
+        isDragging = true;
+        startX = event.clientX;
+        startLeft = sliderValue;
+        
+        window.addEventListener('mousemove', handleDragging);
+        window.addEventListener('mouseup', stopDragging);
+    }
 
-  function getDaysInMonth(year, month) {
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      const days = [];
-      
-      // Add previous month's days
-      const firstDayOfWeek = firstDay.getDay();
-      for (let i = firstDayOfWeek - 1; i >= 0; i--) {
-          const date = new Date(year, month, -i);
-          days.push({
-              date: date,
-              dayOfMonth: date.getDate(),
-              isCurrentMonth: false,
-              isSelectable: isPastDate(date),
-              isSelected: selectedDate && date.toDateString() === new Date(selectedDate).toDateString()
-          });
-      }
-      
-      // Add current month's days
-      for (let i = 1; i <= lastDay.getDate(); i++) {
-          const date = new Date(year, month, i);
-          days.push({
-              date: date,
-              dayOfMonth: i,
-              isCurrentMonth: true,
-              isSelectable: isPastDate(date),
-              isSelected: selectedDate && date.toDateString() === new Date(selectedDate).toDateString()
-          });
-      }
-      
-      // Add next month's days to complete the grid
-      const remainingDays = 42 - days.length; // 6 rows * 7 days = 42
-      for (let i = 1; i <= remainingDays; i++) {
-          const date = new Date(year, month + 1, i);
-          days.push({
-              date: date,
-              dayOfMonth: i,
-              isCurrentMonth: false,
-              isSelectable: isPastDate(date),
-              isSelected: selectedDate && date.toDateString() === new Date(selectedDate).toDateString()
-          });
-      }
-      
-      return days;
-  }
+    function handleDragging(event: MouseEvent) {
+        if (!isDragging) return;
+        
+        const delta = event.clientX - startX;
+        const containerWidth = document.querySelector('.verify-container')?.clientWidth || 0;
+        const newValue = Math.min(Math.max(startLeft + (delta / containerWidth) * 100, 0), 100);
+        
+        sliderValue = newValue;
+        
+        if (newValue > 90) {
+            completeVerification();
+        }
+    }
 
-  // Add reactive statement to update calendar when month/year changes
-  $: calendarDays = getDaysInMonth(currentYear, currentMonth);
+    function stopDragging() {
+        isDragging = false;
+        if (!isVerified) {
+            sliderValue = 0;
+        }
+        
+        window.removeEventListener('mousemove', handleDragging);
+        window.removeEventListener('mouseup', stopDragging);
+    }
+
+    function handleTouchStart(event: TouchEvent) {
+        startX = event.touches[0].clientX;
+        startLeft = sliderValue;
+        
+        window.addEventListener('touchmove', handleTouchMove);
+        window.addEventListener('touchend', handleTouchEnd);
+    }
+
+    function handleTouchMove(event: TouchEvent) {
+        const delta = event.touches[0].clientX - startX;
+        const containerWidth = document.querySelector('.verify-container')?.clientWidth || 0;
+        const newValue = Math.min(Math.max(startLeft + (delta / containerWidth) * 100, 0), 100);
+        
+        sliderValue = newValue;
+        
+        if (newValue > 90) {
+            completeVerification();
+        }
+    }
+
+    function handleTouchEnd() {
+        if (!isVerified) {
+            sliderValue = 0;
+        }
+        
+        window.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('touchend', handleTouchEnd);
+    }
+
+    function completeVerification() {
+        sliderValue = 100;
+        isVerified = true;
+    }
+
+    async function handleSubmit(event: Event) {
+        event.preventDefault();
+        
+        if (!isVerified) {
+            alert('Please verify that you are not a robot');
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            alert('Passwords do not match');
+            return;
+        }
+
+        if (!isAgreed) {
+            alert('Please agree to the terms and conditions');
+            return;
+        }
+
+        // Your form submission logic here
+    }
 </script>
-<div class="min-h-screen flex flex-col lg:flex-row relative overflow-hidden">
-  <!-- Left Section - Remove hidden class and adjust for mobile -->
-  <div class="w-full lg:w-[60%] relative">
-    <!-- Left Section Content -->
-    <div class="w-full lg:hidden p-4 sm:p-6 bg-white border-b border-gray-100">
-      <!-- Mobile Header - Adjust spacing and sizing -->
-      <nav class="flex justify-between items-center mb-4">
-        <a href="/" class="hover:opacity-80 transition-opacity">
-          <img src="/images/lgopis.png" alt="IpsePay" class="h-7" />
-        </a>
-        
-        <a href="/account/login" 
-           class="group flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 
-                  bg-white/80 backdrop-blur-md rounded-lg sm:rounded-xl border border-gray-200
-                  hover:border-[#605bff]/40 hover:bg-white/90 
-                  transition-all duration-200">
-          <span class="text-[13px] sm:text-sm font-medium text-gray-600 hidden sm:inline">Already have an account?</span>
-          <span class="text-[13px] sm:text-sm font-medium text-gray-600 sm:hidden">Have an account?</span>
-          <span class="text-[13px] sm:text-sm font-medium text-[#605bff] group-hover:text-[#605bff]/80">Sign in</span>
-        </a>
-      </nav>
 
-      <!-- Mobile Hero Content -->
-      <div class="space-y-4 text-center">
-        <!-- Title and Description -->
-        <h1 class="text-2xl font-bold tracking-tight leading-tight">
-          <span class="text-gray-900/80">Start Your</span><br />
-          <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#605bff] to-purple-500">
-            Payment Journey
-          </span>
-        </h1>
-        
-        <p class="text-sm text-gray-600 mx-auto max-w-sm">
-          Join our global network of businesses and experience secure and fast payments.
-        </p>
-      </div>
-    </div>
+<svelte:head>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</svelte:head>
 
-    <!-- Desktop Left Section - Keep existing code but hide on mobile -->
-    <div class="hidden lg:flex lg:w-full relative">
-      <!-- Interactive Background -->
-      <div class="absolute inset-0 pointer-events-none">
-        <!-- Gradient Orbs -->
-        <div class="absolute inset-0 opacity-50"
-             style="background: radial-gradient(circle at {mouseX * 100}% {mouseY * 100}%, 
-                    rgba(96, 91, 255, 0.1), 
-                    transparent 40%),
-                    radial-gradient(circle at {100 - mouseX * 100}% {100 - mouseY * 100}%, 
-                    rgba(111, 76, 255, 0.1), 
-                    transparent 40%);">
+<div class="flex min-h-screen max-h-screen overflow-hidden">
+    <!-- Left Section - adjust padding and scaling -->
+    <div class="w-1/2 bg-[#3772FF] p-8 flex flex-col relative overflow-hidden">
+        <!-- Logo Section - reduce margin -->
+        <div class="relative mb-6">
+            <img src="/images/crypto images/LOGOOC.png" alt="XonBiT" class="h-8 object-contain" />
         </div>
         
-        <!-- Animated Grid -->
-        <div class="absolute inset-0 opacity-[0.07]"
-             style="background-image: linear-gradient(#605bff 1px, transparent 1px),
-                    linear-gradient(to right, #605bff 1px, transparent 1px);
-                    background-size: 40px 40px;
-                    transform: perspective(1000px) rotateX({mouseY * 5}deg) rotateY({mouseX * 5}deg);
-                    transition: transform 0.1s ease-out;">
-        </div>
-      </div>
-
-      <!-- Content Section -->
-      <div class="w-full p-12 flex flex-col relative z-10">
-        <!-- Header -->
-        <div class="w-full flex flex-col h-full">
-          <nav class="flex justify-between items-center mb-6 lg:mb-8">
-            <a href="/" class="hover:opacity-80 transition-opacity">
-              <img src="/images/lgopis.png" alt="IpsePay" class="h-6 lg:h-8" />
-            </a>
-            <a href="/account/login" 
-               class="group flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 
-                      bg-white/80 backdrop-blur-md rounded-xl border border-gray-200
-                      hover:border-[#605bff]/40 hover:bg-white/90 
-                      transition-all duration-200">
-              <span class="text-xs sm:text-sm font-medium text-gray-600">Already have an account?</span>
-              <span class="text-xs sm:text-sm font-medium text-[#605bff] group-hover:text-[#605bff]/80">Sign in</span>
-            </a>
-          </nav>
-
-          <!-- Main Content - Adjusted title size and spacing -->
-          <div class="flex-1 flex flex-col justify-between max-w-xl h-full">
-            <div class="mb-4 lg:mb-6">
-              <!-- Modern Animated Badge -->
-              <div class="inline-flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-[#605bff]/5 to-purple-500/5 
-                          rounded-full mb-5 border border-[#605bff]/10">
-                <div class="flex items-center gap-2">
-                  <svg class="w-3 h-3 text-[#605bff]" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
-                    <path fill="white" d="M11 14.414L7.586 11 6 12.586l5 5 8-8L17.586 8z"/>
-                  </svg>
-                  <div class="h-3 w-[1px] bg-[#605bff]/20"></div>
-                  <span class="text-sm font-medium bg-gradient-to-r from-[#605bff] to-purple-500 
-                               bg-clip-text text-transparent">IpsePay Platform</span>
-                </div>
-              </div>
-
-              <!-- Enhanced Dynamic Title -->
-              <div class="space-y-3">
-                <div class="relative">
-                  <h1 class="text-[2rem] lg:text-[3.25rem] font-bold tracking-tight leading-[1.1]">
-                    <span class="text-gray-900/80">Start Your</span>
-                    <br />
-                    <div class="relative inline-flex items-center">
-                      <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#605bff] to-purple-500 
-                                   animate-gradient">Payment Journey</span>
-                      <div class="absolute -right-12 top-0 flex items-center gap-1">
-                        <span class="text-2xl animate-bounce-slow delay-100">✨</span>
-                        <span class="text-xl animate-bounce-slow delay-300">✨</span>
-                      </div>
-                    </div>
-                  </h1>
-                </div>
-                
-                <!-- Modern Subtitle with Highlight -->
-                <p class="text-base text-gray-500 flex items-center gap-2">
-                  Join 
-                  <span class="inline-flex items-center px-2 py-1 bg-[#605bff]/5 rounded-md 
-                                   text-sm font-medium text-[#605bff]">10,000+</span>
-                  businesses using our secure platform
-                </p>
-              </div>
-            </div>
-            
-            <!-- Description -->
-            <p class="text-lg text-gray-600 mb-12 relative">
-              Join our global network of businesses and experience 
-              <span class="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 rounded-md text-sm font-medium">
-                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                secure
-              </span>
-              and
-              <span class="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-sm font-medium">
-                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                fast
-              </span>
-              payments.
-            </p>
-
-            <!-- Feature Grid - Adjusted for mobile -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 mb-4 lg:mb-6">
-              <div class="p-3 lg:p-5 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 hover:border-[#605bff]/20 transition-all duration-300 group">
-                <div class="flex items-start space-x-4">
-                  <div class="w-12 h-12 rounded-full bg-[#605bff]/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <svg class="w-6 h-6 text-[#605bff]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 class="text-base font-semibold text-gray-900 mb-1">Enterprise Security</h3>
-                    <p class="text-sm text-gray-600">Bank-grade encryption and compliance</p>
-                  </div>
-                </div>
-              </div>
-
-              <div class="p-3 lg:p-5 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 hover:border-[#605bff]/20 transition-all duration-300 group">
-                <div class="flex items-start space-x-4">
-                  <div class="w-12 h-12 rounded-full bg-[#605bff]/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <svg class="w-6 h-6 text-[#605bff]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 class="text-base font-semibold text-gray-900 mb-1">Global Coverage</h3>
-                    <p class="text-sm text-gray-600">Accept payments worldwide</p>
-                  </div>
-                </div>
-              </div>
-
-              <div class="p-3 lg:p-5 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 hover:border-[#605bff]/20 transition-all duration-300 group">
-                <div class="flex items-start space-x-4">
-                  <div class="w-12 h-12 rounded-full bg-[#605bff]/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <svg class="w-6 h-6 text-[#605bff]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 class="text-base font-semibold text-gray-900 mb-1">Instant Setup</h3>
-                    <p class="text-sm text-gray-600">Go live in minutes</p>
-                  </div>
-                </div>
-              </div>
-
-              <div class="p-3 lg:p-5 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 hover:border-[#605bff]/20 transition-all duration-300 group">
-                <div class="flex items-start space-x-4">
-                  <div class="w-12 h-12 rounded-full bg-[#605bff]/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <svg class="w-6 h-6 text-[#605bff]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 class="text-base font-semibold text-gray-900 mb-1">24/7 Support</h3>
-                    <p class="text-sm text-gray-600">Always here to help</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Trust Badge -->
-            <div class="flex items-center gap-2 mb-6">
-              <div class="flex -space-x-2">
-                {#each Array(4) as _, i}
-                  <div class="w-8 h-8 rounded-full bg-gradient-to-r from-[#605bff] to-purple-500 border-2 border-white flex items-center justify-center text-white text-xs">
-                    ✓
-                  </div>
-                {/each}
-              </div>
-              <p class="text-sm text-gray-600">
-                Trusted by <span class="font-semibold text-gray-900">10,000+</span> businesses worldwide
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Right Section - Form -->
-  <div class="w-full lg:w-[70%] p-1 sm:p-2 flex items-start justify-start min-h-screen bg-gradient-to-b from-white to-gray-50/50">
-    <div class="w-full max-w-[1200px] relative scale-100 lg:scale-[0.92]">
-      <!-- Secure Registration Badge - Reduced margins -->
-      
-      
-      <!-- Progress Bar - Updated for mobile responsiveness -->
-      <div class="relative w-full mb-6 sm:mb-8">
-        <!-- Progress bar and steps container - Adjusted padding -->
-        <div class="relative flex items-center justify-between px-4 sm:px-10">
-          <!-- Background line -->
-          <div class="absolute left-8 sm:left-16 right-8 sm:right-16 top-1/2 -translate-y-1/2 h-1 
-                      bg-gray-100 rounded-full overflow-hidden">
-            <!-- Animated progress -->
-            <div class="h-full bg-gradient-to-r from-[#605bff] to-[#8b7aff] 
-                        transition-all duration-700 ease-out relative"
-                 style="width: {(formStep / 2) * 100}%">
-              <!-- Shimmer effect -->
-              <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent
-                          animate-shimmer-primary"></div>
-            </div>
-          </div>
-
-          <!-- Steps with icons - Adjusted sizes -->
-          {#each Array(2) as _, i}
-            <div class="relative z-10">
-              <!-- Step circle - Responsive sizing -->
-              <div class="relative">
-                <!-- Main circle -->
-                <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center
-                            transition-all duration-500 border-[3px]
-                            transform hover:scale-105 bg-white
-                            {i + 1 <= formStep ? 'border-[#605bff]' : 'border-gray-200'}"
-                     style="box-shadow: 0 0 0 8px {i + 1 <= formStep ? 'rgb(96 91 255 / 0.08)' : 'rgb(243 244 246)'}">
-                  
-                  {#if i + 1 < formStep}
-                    <!-- Completed state -->
-                    <div class="flex items-center justify-center w-full h-full 
-                                bg-gradient-to-r from-[#605bff] to-[#8b7aff] rounded-full">
-                      <svg class="w-8 h-8 text-white animate-check" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" 
-                              d="M5 13l4 4L19 7"/>
-                      </svg>
-                    </div>
-                  {:else}
-                    <!-- Current/Future state -->
-                    <svg class="w-7 h-7 {i + 1 === formStep ? 'text-[#605bff]' : 'text-gray-400'}" 
-                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      {#if i === 0}
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      {:else}
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                      {/if}
-                    </svg>
-                  {/if}
-                </div>
-
-                <!-- Active state effects -->
-                {#if i + 1 === formStep}
-                  <div class="absolute -inset-4 rounded-full border-2 border-[#605bff]/20
-                             animate-pulse-ring"></div>
-                  <div class="absolute -inset-6 rounded-full border border-[#605bff]/10
-                             animate-pulse-ring-slow delay-150"></div>
-                {/if}
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
-
-      <!-- Form Card -->
-      <div class="bg-white shadow-lg rounded-2xl border border-gray-100 p-4 sm:p-6 max-w-3xl mx-auto space-y-4 sm:space-y-6 pt-2">
-        <form class="relative">
-          {#if formStep === 1}
-            <!-- Step 1: Personal Information -->
+        <!-- Content Section - adjust spacing -->
+        <div class="flex-grow flex flex-col justify-between relative z-10">
             <div class="space-y-4">
-              <div class="form-section">
-                <div class="flex items-center gap-2 mb-4">
-                  <div class="p-1.5 bg-[#605bff]/10 rounded-lg">
-                    <svg class="w-4 h-4 text-[#605bff]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 class="text-base font-semibold text-gray-900">Personal Information</h3>
-                    <p class="text-xs text-gray-500">Step 1 of 2</p>
-                  </div>
+                <div class="space-y-2">
+                    <h1 class="text-white text-4xl font-bold leading-tight">
+                        We make it easy to<br />
+                        <span class="text-white/90">buy and sell</span><br />
+                        cryptocurrency
+                    </h1>
+                    <p class="text-white/80 text-lg">Crypto Asset Exchange</p>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  <!-- First Name -->
-                  <div class="form-group">
-                    <label class="form-label">First name</label>
-                    <div class="input-wrapper">
-                      <div class="input-icon-wrapper">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
-                                d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                        </svg>
-                      </div>
-                      <input
-                        type="text"
-                        class="modern-input {errors.firstName ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}"
-                        placeholder="First name"
-                        bind:value={formData.firstName}
-                        required
-                      />
+                <!-- Crypto Image - adjust size -->
+                <div class="relative">
+                    <div class="absolute -top-4 -left-4 w-24 h-24 bg-white/5 rounded-full animate-pulse"></div>
+                    <img 
+                        src="/images/crypto images/icoco.png" 
+                        alt="Crypto" 
+                        class="w-56 relative z-10 drop-shadow-2xl transform hover:scale-105 transition-transform duration-300"
+                    />
+                </div>
+
+                <!-- Timer Section - compact layout -->
+                <div class="space-y-2">
+                    <h3 class="text-white text-xl font-semibold">
+                        Sign Up now and get down your
+                        trading Fees to Zero!
+                    </h3>
+                    
+                    <div class="space-y-1">
+                        <p class="text-white/80 text-sm font-medium">Event ends in:</p>
+                        <div class="flex gap-2">
+                            {#each [
+                                { value: days, label: 'D' },
+                                { value: hours, label: 'H' },
+                                { value: minutes, label: 'M' },
+                                { value: seconds, label: 'S' }
+                            ] as { value, label }}
+                                <div class="group relative">
+                                    <div class="relative bg-white/10 backdrop-blur-sm rounded-xl p-3 w-16
+                                                border border-white/10 transform hover:scale-105 transition-all duration-300">
+                                        <div class="text-2xl font-bold text-white">{value}</div>
+                                        <div class="text-xs text-white/70">{label}</div>
+                                    </div>
+                                </div>
+                            {/each}
+                        </div>
                     </div>
-                  </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                  <!-- Last Name -->
-                  <div class="form-group">
-                    <label class="form-label">Last name</label>
-                    <div class="input-wrapper">
-                      <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                      </svg>
-                      <input
-                        type="text"
-                        class="modern-input {errors.lastName ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}"
-                        placeholder="Last name"
-                        bind:value={formData.lastName}
-                        required
-                      />
-                    </div>
-                  </div>
+    <!-- Right Section - adjust padding and form spacing -->
+    <div class="w-1/2 p-8 flex items-center bg-gray-50 overflow-y-auto">
+        <div class="w-full max-w-md mx-auto space-y-8">
+            <!-- Form Header -->
+            <div class="text-center space-y-2">
+                <h2 class="text-2xl font-bold text-gray-900">Create an Account</h2>
+                <p class="text-gray-500">Join the world's leading crypto exchange</p>
+            </div>
 
-                  <!-- Email -->
-                  <div class="form-group">
-                    <label class="form-label">Email address</label>
-                    <div class="input-wrapper">
-                      <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
-                              d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                      </svg>
-                      <input
-                        type="email"
-                        class="modern-input {errors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}"
-                        placeholder="you@example.com"
-                        bind:value={formData.email}
-                        on:blur={() => {
-                          if (formData.email && !isValidEmail(formData.email)) {
-                            errors.email = 'Please enter a valid email address';
-                          } else {
-                            delete errors.email;
-                          }
-                        }}
-                        required
-                      />
-                    </div>
-                    {#if errors.email}
-                      <span class="text-xs text-red-500 mt-1">{errors.email}</span>
-                    {/if}
-                  </div>
-
-                  <!-- Phone -->
-                  <div class="form-group">
-                    <label class="form-label">Phone number</label>
-                    <div class="flex">
-                      <!-- Modern Country Code Select -->
-                      <div class="w-[150px]"> <!-- Increased width further to ensure full visibility -->
-                        <Select
-                          items={uniquePrefixes}
-                          bind:value={selectedPhonePrefix}
-                          class="phone-prefix-select"
-                          placeholder="+1 🇺🇸"
-                          itemComponent={({ item }) => `
-                            <div class="flex items-center justify-between w-full px-3 py-2.5">
-                              <div class="flex items-center gap-2.5 min-w-0">
-                                <span class="text-lg flex-shrink-0">${item.flag}</span>
-                                <span class="font-medium text-gray-900 whitespace-nowrap">${item.code}</span>
-                              </div>
-                            </div>
-                          `}
-                          selectedComponent={({ item }) => `
-                            <div class="flex items-center justify-center gap-2 w-full">
-                              <span class="text-lg flex-shrink-0">${item.flag}</span>
-                              <span class="font-medium whitespace-nowrap overflow-visible">${item.code}</span>
-                            </div>
-                          `}
-                        />
-                      </div>
-
-                      <!-- Phone Input -->
-                      <div class="flex-1 -ml-[1px]">
-                        <input
-                          type="tel"
-                          class="modern-input rounded-l-none {errors.phone ? 'border-red-500' : ''}"
-                          placeholder="(555) 000-0000"
-                          bind:value={formData.phone}
-                          on:input={handlePhoneInput}
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Replace the existing birth date input with this -->
-                  <div class="relative col-span-1 sm:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Birth Date
+            <form class="space-y-6" on:submit={handleSubmit}>
+                <!-- Email Field -->
+                <div class="form-group">
+                    <label class="form-label" for="email">
+                        <span class="text-sm font-medium text-gray-700">Email</span>
+                        <span class="ml-1 text-xs text-[#3772FF]">*</span>
                     </label>
-                    <div class="relative">
-                        <button
-                            type="button"
-                            class="w-full h-[60px] bg-white px-6 py-3.5 rounded-xl border-2 border-gray-200
-                                   hover:border-[#605bff] focus:border-[#605bff] focus:ring-4 
-                                   focus:ring-[#605bff]/20 transition-all duration-200
-                                   text-left flex items-center justify-between"
-                            on:click={() => showDatePicker = !showDatePicker}
+                    <div class="input-container">
+                        <div class="input-icon">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                      d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                            </svg>
+                        </div>
+                        <input 
+                            id="email"
+                            type="email"
+                            bind:value={email}
+                            required
+                            class="input-field"
+                            placeholder="name@company.com"
+                        />
+                    </div>
+                </div>
+
+                <!-- Password Field -->
+                <div class="form-group">
+                    <label class="form-label" for="password">
+                        <span class="text-sm font-medium text-gray-700">Password</span>
+                        <span class="ml-1 text-xs text-[#3772FF]">*</span>
+                    </label>
+                    <div class="input-container">
+                        <div class="input-icon">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
+                        <input 
+                            id="password"
+                            type="password"
+                            bind:value={password}
+                            required
+                            class="input-field"
+                            placeholder="••••••••"
+                        />
+                        <button 
+                            type="button" 
+                            class="input-action-btn"
+                            on:click={() => showPassword = !showPassword}
                         >
-                            <span class="text-[16px] font-medium {selectedDate ? 'text-gray-900' : 'text-gray-400'}">
-                                {selectedDate ? formatDate(selectedDate) : 'Select your birth date'}
-                            </span>
-                            <svg class="w-5 h-5 text-gray-400 flex-shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                      d={showPassword 
+                                          ? "M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" 
+                                          : "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z"} 
+                                />
                             </svg>
                         </button>
-
-                        {#if showDatePicker}
-                            <div class="absolute z-50 mt-2 p-4 bg-white rounded-xl shadow-lg border border-gray-100 w-[320px]">
-                                <!-- Month and Year Selection -->
-                                <div class="flex justify-between items-center mb-4">
-                                    <select
-                                        bind:value={currentMonth}
-                                        class="px-2 py-1 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:border-[#605bff]"
-                                    >
-                                        {#each months as month, i}
-                                            <option value={i}>{month}</option>
-                                        {/each}
-                                    </select>
-
-                                    <select
-                                        bind:value={currentYear}
-                                        class="px-2 py-1 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:border-[#605bff]"
-                                    >
-                                        {#each years as year}
-                                            <option value={year}>{year}</option>
-                                        {/each}
-                                    </select>
-                                </div>
-
-                                <!-- Calendar Grid -->
-                                <div class="grid grid-cols-7 gap-1">
-                                    <!-- Day labels -->
-                                    {#each ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as day}
-                                        <div class="text-center text-sm font-medium text-gray-400 py-1">
-                                            {day}
-                                        </div>
-                                    {/each}
-
-                                    <!-- Calendar days -->
-                                    {#each getDaysInMonth(currentYear, currentMonth) as day}
-                                        <button
-                                            type="button"
-                                            class="p-2 text-sm rounded-lg hover:bg-[#605bff]/5 transition-colors
-                                                   {day.isCurrentMonth ? 'text-gray-700' : 'text-gray-400'}
-                                                   {day.isSelected ? 'bg-[#605bff] text-white hover:bg-[#605bff]' : ''}
-                                                   {!day.isSelectable ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}"
-                                            disabled={!day.isSelectable}
-                                            on:click={() => handleDateSelect(day.date)}
-                                        >
-                                            {day.dayOfMonth}
-                                        </button>
-                                    {/each}
-                                </div>
-                            </div>
-                        {/if}
                     </div>
-                  </div>
-
-                  <!-- Password -->
-                  <div class="col-span-full">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                    <div class="relative w-full">
-                      <!-- Lock icon -->
-                      <div class="absolute left-5 top-1/2 -translate-y-1/2">
-                        <svg xmlns="http://www.w3.org/2000/svg" 
-                             class="w-5 h-5 text-[#605bff]/70" 
-                             viewBox="0 0 24 24" 
-                             fill="none" 
-                             stroke="currentColor">
-                          <path stroke-linecap="round" 
-                                stroke-linejoin="round" 
-                                stroke-width="1.5" 
-                                d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                        </svg>
-                      </div>
-                      
-                      <!-- Password input -->
-                      <div class="w-full">
-                        {#if showPassword}
-                          <input 
-                            type="text"
-                            class="block w-full h-[60px] pl-14 pr-12 bg-white
-                                   border border-gray-200 rounded-xl
-                                   focus:outline-none focus:ring-2 
-                                   focus:ring-[#605bff]/20 focus:border-[#605bff]
-                                   text-gray-900 placeholder-gray-400 
-                                   transition-all duration-200
-                                   hover:border-[#605bff]/40 text-[16px] 
-                                   leading-normal tracking-tight
-                                   hover:bg-white focus:bg-white font-medium" 
-                            placeholder="Create password" 
-                            bind:value={formData.password}
-                            on:input={() => checkPasswordStrength(formData.password)}
-                            required 
-                          />
-                        {:else}
-                          <input 
-                            type="password"
-                            class="block w-full h-[60px] pl-14 pr-12 bg-white
-                                   border border-gray-200 rounded-xl
-                                   focus:outline-none focus:ring-2 
-                                   focus:ring-[#605bff]/20 focus:border-[#605bff]
-                                   text-gray-900 placeholder-gray-400 
-                                   transition-all duration-200
-                                   hover:border-[#605bff]/40 text-[16px] 
-                                   leading-normal tracking-tight
-                                   hover:bg-white focus:bg-white font-medium" 
-                            placeholder="Create password" 
-                            bind:value={formData.password}
-                            on:input={() => checkPasswordStrength(formData.password)}
-                            required 
-                          />
-                        {/if}
-                      </div>
-
-                      <!-- Password toggle button -->
-                      <button
-                        type="button"
-                        class="absolute right-4 top-1/2 -translate-y-1/2 p-1
-                               hover:bg-gray-100 rounded-full transition-colors
-                               focus:outline-none focus:ring-2 focus:ring-[#605bff]/20"
-                        on:click={() => showPassword = !showPassword}
-                        aria-label={showPassword ? "Hide password" : "Show password"}
-                      >
-                        {#if showPassword}
-                          <svg xmlns="http://www.w3.org/2000/svg" 
-                               class="h-5 w-5 text-gray-500 hover:text-[#605bff] transition-colors" 
-                               fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                  d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                          </svg>
-                        {:else}
-                          <svg xmlns="http://www.w3.org/2000/svg" 
-                               class="h-5 w-5 text-gray-500 hover:text-[#605bff] transition-colors" 
-                               fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        {/if}
-                      </button>
-
-                      <!-- Password strength indicator -->
-                      <div class="absolute -bottom-7 left-0 right-0 space-y-1">
-                        <!-- Strength bars -->
-                        <div class="w-full flex gap-1">
-                          {#each Array(5) as _, i}
-                            <div class="h-1 flex-1 rounded-full transition-all duration-300
-                                        {i < passwordStrength ? strengthColor : 'bg-gray-200'}" />
-                          {/each}
+                    <div class="password-strength">
+                        <div class="strength-bars">
+                            <div class="bar" class:active={password.length > 0}></div>
+                            <div class="bar" class:active={password.length > 8}></div>
+                            <div class="bar" class:active={/[A-Z]/.test(password)}></div>
+                            <div class="bar" class:active={/[0-9]/.test(password)}></div>
                         </div>
-                        <!-- Strength label -->
-                        <div class="flex justify-between items-center text-xs">
-                          <span class="font-medium" 
-                                  class:text-red-500={passwordStrength <= 1}
-                                  class:text-orange-500={passwordStrength === 2}
-                                  class:text-yellow-500={passwordStrength === 3}
-                                  class:text-green-500={passwordStrength >= 4}>
-                            {strengthLabel}
-                          </span>
-                        </div>
-                      </div>
+                        <span class="text-xs text-gray-500">Use 8+ characters with a mix of letters & numbers</span>
                     </div>
+                </div>
 
-                    <!-- Password requirements -->
-                    <div class="mt-10 text-xs text-gray-500">
-                      <span class="font-medium">Password must contain:</span>
-                      <div class="mt-2 grid grid-cols-2 gap-2">
-                        {#each [
-                          { check: 'length', text: 'At least 8 characters' },
-                          { check: 'uppercase', text: 'One uppercase letter' },
-                          { check: 'lowercase', text: 'One lowercase letter' },
-                          { check: 'number', text: 'One number' },
-                          { check: 'special', text: 'One special character' }
-                        ] as requirement}
-                          <div class="flex items-center gap-2">
-                            <svg class="w-4 h-4 transition-colors duration-300
-                                        {passwordChecks[requirement.check] ? 'text-green-500' : 'text-gray-400'}" 
-                                 viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <!-- Confirm Password Field -->
+                <div class="form-group">
+                    <label class="form-label" for="confirmPassword">
+                        <span class="text-sm font-medium text-gray-700">Confirm Password</span>
+                        <span class="ml-1 text-xs text-[#3772FF]">*</span>
+                    </label>
+                    <div class="input-container">
+                        <div class="input-icon">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
-                            <span class="transition-colors duration-300
-                                         {passwordChecks[requirement.check] ? 'text-gray-700' : 'text-gray-400'}">
-                              {requirement.text}
-                            </span>
-                          </div>
-                        {/each}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Next Button -->
-              <button 
-                type="button"
-                on:click={handleNextStep}
-                disabled={isNextButtonDisabled}
-                class="w-full bg-gradient-to-r from-[#605bff] to-[#8b7aff] text-white 
-                       px-7 py-3 rounded-xl font-medium flex items-center justify-center gap-2
-                       disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {#if isSendingCode}
-                  <div class="flex items-center gap-2">
-                    <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Sending Code...
-                  </div>
-                {:else}
-                  Continue
-                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                {/if}
-              </button>
-            </div>
-
-          {:else if formStep === 2}
-            <!-- Step 2: Address Information -->
-            <div class="space-y-4">
-              <div class="form-section">
-                <div class="flex items-center gap-2 mb-4">
-                  <div class="p-1.5 bg-[#605bff]/10 rounded-lg">
-                    <svg class="w-4 h-4 text-[#605bff]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 21h7.5V10.75M2.25 21h1.5m18 0h-18M2.25 9l4.5-1.636M18.75 3l-1.5.545m0 6.205l3 1m1.5.5l-1.5-.5M6.75 7.364V3h-3v18m3-13.636l10.5-3.819" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 class="text-base font-semibold text-gray-900">Address Information</h3>
-                    <p class="text-xs text-gray-500">Step 2 of 2</p>
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <!-- Street Address - Full width on all screens -->
-                  <div class="form-group col-span-1 sm:col-span-2">
-                    <label class="form-label">Street address</label>
-                    <div class="input-wrapper">
-                      <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 21h7.5V10.75M2.25 21h1.5m18 0h-18M2.25 9l4.5-1.636M18.75 3l-1.5.545m0 6.205l3 1m1.5.5l-1.5-.5M6.75 7.364V3h-3v18m3-13.636l10.5-3.819" />
-                      </svg>
-                      <input
-                        type="text"
-                        class="modern-input {errors.streetAddress ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}"
-                        placeholder="Enter street address"
-                        bind:value={formData.streetAddress}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <!-- City -->
-                  <div class="form-group col-span-1">
-                    <label class="form-label">City</label>
-                    <div class="input-wrapper">
-                      <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21" />
-                      </svg>
-                      <input
-                        type="text"
-                        class="modern-input {errors.city ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}"
-                        placeholder="City"
-                        bind:value={formData.city}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <!-- State -->
-                  <div class="form-group col-span-1">
-                    <label class="form-label">State</label>
-                    <div class="input-wrapper">
-                      <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                      </svg>
-                      <input
-                        type="text"
-                        class="modern-input {errors.state ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}"
-                        placeholder="State"
-                        bind:value={formData.state}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <!-- ZIP -->
-                  <div class="form-group col-span-1">
-                    <label class="form-label">ZIP code</label>
-                    <div class="input-wrapper">
-                      <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                      </svg>
-                      <input
-                        type="text"
-                        class="modern-input {errors.zip ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}"
-                        placeholder="ZIP"
-                        bind:value={formData.zip}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <!-- Country -->
-                  <div class="form-group col-span-1">
-                    <label class="form-label">Country</label>
-                    <div class="input-wrapper select-wrapper">
-                      <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
-                              d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918" />
-                      </svg>
-                      <Select
-                        items={formattedCountries}
-                        bind:value={selectedCountry}
-                        class="modern-select"
-                        placeholder="Select country"
-                        itemComponent={({ item }) => `
-                          <div class="flex items-center gap-2 py-1">
-                            <span class="text-lg">${item.flag}</span>
-                            <span class="font-medium">${item.label}</span>
-                          </div>
-                        `}
-                        selectedComponent={({ item }) => `
-                          <div class="flex items-center gap-2">
-                            <span class="text-lg">${item.flag}</span>
-                            <span class="font-medium">${item.label}</span>
-                          </div>
-                        `}
-                      />
-                    </div>
-                    {#if errors.country}
-                      <span class="text-xs text-red-500 mt-1">{errors.country}</span>
-                    {/if}
-                  </div>
-                </div>
-              </div>
-
-              <!-- Terms and Navigation Buttons -->
-              <div class="pt-6 border-t border-gray-100">
-                <div class="flex items-start gap-3 mb-4">
-                  <input
-                    id="terms"
-                    type="checkbox"
-                    class="mt-1 h-4 w-4 rounded border-gray-300 text-[#605bff] focus:ring-[#605bff]/20"
-                    required
-                  />
-                  <label for="terms" class="text-sm text-gray-600">
-                    By signing up, you agree to our 
-                    <a href="/terms" class="text-[#605bff] hover:text-[#605bff]/80">Terms</a>
-                    {" and "}
-                    <a href="/privacy" class="text-[#605bff] hover:text-[#605bff]/80">Privacy Policy</a>
-                  </label>
-                </div>
-
-                <div class="flex gap-3">
-                  <button 
-                    type="button"
-                    on:click={() => formStep = 1}
-                    class="w-1/3 border border-[#605bff] text-[#605bff] 
-                           px-7 py-3 rounded-xl font-medium"
-                  >
-                    Back
-                  </button>
-                  <button 
-                    type="submit" 
-                    on:click|preventDefault={handleSubmit}
-                    disabled={isLoading}
-                    class="w-2/3 bg-gradient-to-r from-[#605bff] to-[#8b7aff] text-white 
-                           px-7 py-3 rounded-xl font-medium flex items-center justify-center gap-2
-                           disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {#if isLoading}
-                      <div class="flex items-center gap-2">
-                        <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Creating Account...
-                      </div>
-                    {:else}
-                      Create Account
-                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                      </svg>
-                    {/if}
-                  </button>
-                </div>
-              </div>
-            </div>
-          {/if}
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- Mobile Features Section - Show after form -->
-  <div class="lg:hidden px-4 py-8 bg-gray-50/50">
-    <div class="space-y-6">
-      <!-- Section Title -->
-      <div class="text-center">
-        <h3 class="text-xl font-bold text-gray-900">Why Choose IpsePay?</h3>
-        <p class="text-sm text-gray-600 mt-1">Trusted by businesses worldwide</p>
-      </div>
-
-      <!-- Feature Grid -->
-      <div class="grid grid-cols-2 gap-3">
-        {#each features as feature}
-          <div class="p-3 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-100">
-            <div class="flex flex-col gap-2">
-              <div class="w-8 h-8 rounded-full bg-[#605bff]/10 flex items-center justify-center">
-                <!-- Feature icons (using existing SVGs) -->
-                {#if feature.title === 'Lightning Fast'}
-                  <svg class="w-4 h-4 text-[#605bff]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                {:else if feature.title === 'Bank-Grade Security'}
-                  <svg class="w-4 h-4 text-[#605bff]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                {:else if feature.title === 'Global Coverage'}
-                  <svg class="w-4 h-4 text-[#605bff]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                {:else if feature.title === 'Real-time Analytics'}
-                  <svg class="w-4 h-4 text-[#605bff]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                {/if}
-              </div>
-              <div>
-                <h3 class="text-sm font-semibold text-gray-900">{feature.title}</h3>
-                <p class="text-xs text-gray-600">{feature.description}</p>
-              </div>
-            </div>
-          </div>
-        {/each}
-      </div>
-
-      <!-- Stats Section -->
-      <div class="flex justify-around py-4 border-t border-gray-100">
-        {#each stats as stat}
-          <div class="text-center">
-            <div class="text-lg font-bold text-gray-900">{stat.value}</div>
-            <div class="text-xs text-gray-600">{stat.label}</div>
-          </div>
-        {/each}
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modern Notification Component -->
-{#if isNotificationVisible}
-  <div
-    transition:fade={{ duration: 300 }}
-    class="fixed top-4 right-4 z-50 flex items-center gap-3 p-4 pr-12
-           bg-white border border-gray-100 rounded-2xl shadow-lg shadow-black/5
-           backdrop-blur-xl"
-  >
-    <!-- Icon container -->
-    <div class="{notificationType === 'error' 
-      ? 'bg-red-50 text-red-500' 
-      : 'bg-green-50 text-green-500'} 
-      p-2 rounded-xl">
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        {#if notificationType === 'error'}
-          <path 
-            stroke-linecap="round" 
-            stroke-linejoin="round" 
-            stroke-width="2" 
-            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-          />
-        {:else}
-          <path 
-            stroke-linecap="round" 
-            stroke-linejoin="round" 
-            stroke-width="2" 
-            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        {/if}
-      </svg>
-    </div>
-
-    <!-- Content -->
-    <div class="flex flex-col">
-      <span class="font-medium text-gray-900">
-        {notificationType === 'error' ? 'Error' : 'Success'}
-      </span>
-      <span class="text-sm text-gray-500">{notificationMessage}</span>
-    </div>
-
-    <!-- Close button -->
-    <button
-      on:click={() => isNotificationVisible = false}
-      class="absolute right-2 top-2 p-1 hover:bg-gray-50 rounded-lg
-             transition-colors duration-200"
-    >
-      <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path 
-          stroke-linecap="round" 
-          stroke-linejoin="round" 
-          stroke-width="2" 
-          d="M6 18L18 6M6 6l12 12"
-        />
-      </svg>
-    </button>
-
-    <!-- Progress bar -->
-    <div class="absolute bottom-0 left-0 right-0 h-1 bg-gray-100 rounded-full overflow-hidden">
-      <div
-        class="h-full {notificationType === 'error' ? 'bg-red-500' : 'bg-green-500'} 
-               transition-all duration-300 ease-in-out"
-        style="animation: notification-progress 5s linear;"
-      ></div>
-    </div>
-  </div>
-{/if}
-
-<style lang="postcss">
-  /* Fixed Icon Positioning */
-  .input-wrapper {
-    @apply relative;
-  }
-
-  .input-icon {
-    @apply absolute left-5 top-1/2 -translate-y-1/2 
-           w-5 h-5 text-[#605bff]/70 stroke-[1.5]
-           transition-all duration-200 pointer-events-none;
-  }
-
-  /* Input with Proper Icon Space */
-  .modern-input {
-    @apply w-full h-[60px] pl-14 pr-5 bg-white
-           border border-gray-200 rounded-xl
-           focus:outline-none focus:ring-2 
-           focus:ring-[#605bff]/20 focus:border-[#605bff]
-           text-gray-900 placeholder-gray-400 
-           transition-all duration-200
-           hover:border-[#605bff]/40 text-[16px] 
-           leading-normal tracking-tight
-           hover:bg-white focus:bg-white font-medium;
-  }
-
-  /* Hover and Focus States */
-  .input-wrapper:hover .input-icon {
-    @apply text-[#605bff];
-  }
-
-  .input-wrapper:focus-within .input-icon {
-    @apply text-[#605bff];
-  }
-
-  /* Select Component Alignment */
-  :global(.modern-select) {
-    --height: 60px;
-    --font-size: 16px;
-    --padding: 0.75rem 1rem;
-  }
-
-  :global(.modern-select input) {
-    padding-left: 3.5rem !important;
-  }
-
-  /* Add these new styles for the select */
-  .select-wrapper {
-    @apply relative;
-  }
-
-  .select-wrapper .input-icon {
-    @apply z-10;
-  }
-
-  :global(.select-wrapper .modern-select) {
-    @apply w-full;
-  }
-
-  :global(.select-wrapper .modern-select .selectContainer) {
-    @apply h-[60px] bg-white border border-gray-200 rounded-xl;
-  }
-
-  :global(.select-wrapper .modern-select .selectContainer input) {
-    @apply pl-14 h-[60px];
-  }
-
-  :global(.select-wrapper:hover .input-icon) {
-    @apply text-[#605bff];
-  }
-
-  @keyframes pattern-1 {
-    0% { background-position: 0 0; }
-    100% { background-position: 20px 20px; }
-  }
-
-  @keyframes pattern-2 {
-    0% { background-position: 0 0; }
-    100% { background-position: -20px -20px; }
-  }
-
-  @keyframes shimmer-primary {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-  }
-
-  @keyframes shimmer-secondary {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-  }
-
-  @keyframes pulse-ring {
-    0% { transform: scale(0.95); opacity: 0.6; }
-    50% { transform: scale(1.05); opacity: 0.3; }
-    100% { transform: scale(0.95); opacity: 0.6; }
-  }
-
-  @keyframes pulse-ring-slow {
-    0% { transform: scale(0.98); opacity: 0.4; }
-    50% { transform: scale(1.02); opacity: 0.2; }
-    100% { transform: scale(0.98); opacity: 0.4; }
-  }
-
-  @keyframes check {
-    0% { transform: scale(0.8) rotate(-10deg); opacity: 0; }
-    50% { transform: scale(1.2) rotate(5deg); }
-    100% { transform: scale(1) rotate(0deg); opacity: 1; }
-  }
-
-  .animate-pattern-1 {
-    animation: pattern-1 3s linear infinite;
-  }
-
-  .animate-pattern-2 {
-    animation: pattern-2 3s linear infinite;
-  }
-
-  .animate-shimmer-primary {
-    animation: shimmer-primary 2s infinite;
-  }
-
-  .animate-shimmer-secondary {
-    animation: shimmer-secondary 2.5s infinite;
-  }
-
-  .animate-pulse-ring {
-    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-
-  .animate-pulse-ring-slow {
-    animation: pulse-ring-slow 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-
-  .animate-ping-slow {
-    animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
-  }
-
-  .animate-ping-slower {
-    animation: ping 2.5s cubic-bezier(0, 0, 0.2, 1) infinite;
-  }
-
-  /* Add these new animations */
-  @keyframes bounce-slow {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-3px); }
-  }
-
-  .animate-bounce-slow {
-    animation: bounce-slow 1.5s infinite;
-  }
-
-  .form-group {
-    @apply flex flex-col gap-2;
-  }
-
-  .input-wrapper {
-    @apply relative flex-1;
-  }
-
-  .modern-input {
-    @apply h-[60px] pl-14 pr-5 bg-white
-           border border-gray-200 rounded-xl
-           focus:outline-none focus:ring-2 
-           focus:ring-[#605bff]/20 focus:border-[#605bff]
-           text-gray-900 placeholder-gray-400 
-           transition-all duration-200
-           hover:border-[#605bff]/40 text-[16px] 
-           leading-normal tracking-tight
-           hover:bg-white focus:bg-white font-medium;
-  }
-
-  /* Add the notification animation with the other animations */
-  @keyframes notification-progress {
-    from { width: 100%; }
-    to { width: 0%; }
-  }
-
-  /* Add styles for phone prefix select */
-  :global(.phone-prefix-select) {
-    --height: 60px;
-    --border-radius: 0.75rem 0 0 0.75rem;
-    --border-color: #e5e7eb;
-    --border-hover-color: rgba(96, 91, 255, 0.4);
-    --background: white;
-  }
-
-  :global(.phone-prefix-select .selectContainer) {
-    @apply h-[60px] border border-gray-200 rounded-l-xl rounded-r-none
-           bg-white/80 backdrop-blur-sm transition-all duration-200
-           overflow-visible;
-  }
-
-  :global(.phone-prefix-select .selectContainer:hover) {
-    @apply border-[#605bff]/40 bg-white;
-  }
-
-  :global(.phone-prefix-select .selectContainer:focus-within) {
-    @apply border-[#605bff] ring-2 ring-[#605bff]/20 bg-white;
-  }
-
-  :global(.phone-prefix-select .listContainer) {
-    @apply mt-1 rounded-xl border border-gray-100 shadow-lg 
-           bg-white/95 backdrop-blur-xl
-           min-w-[180px] max-h-[280px] overflow-y-auto;
-  }
-
-  :global(.phone-prefix-select .listItem) {
-    @apply hover:bg-[#605bff]/5 transition-all duration-200
-           border-l-2 border-transparent;
-  }
-
-  :global(.phone-prefix-select .listItem.selected) {
-    @apply bg-[#605bff]/10 border-l-2 border-[#605bff];
-  }
-
-  :global(.phone-prefix-select .selectedItem) {
-    @apply px-2 flex items-center justify-center h-[60px] w-full overflow-visible;
-  }
-
-  :global(.phone-prefix-select input) {
-    @apply text-sm font-medium overflow-visible whitespace-nowrap;
-  }
-
-  /* Modern scrollbar */
-  :global(.phone-prefix-select .listContainer::-webkit-scrollbar) {
-    @apply w-1.5;
-  }
-
-  :global(.phone-prefix-select .listContainer::-webkit-scrollbar-track) {
-    @apply bg-transparent;
-  }
-
-  :global(.phone-prefix-select .listContainer::-webkit-scrollbar-thumb) {
-    @apply bg-gray-200 rounded-full hover:bg-gray-300 transition-colors;
-  }
-
-  /* Search input styling */
-  :global(.phone-prefix-select .selectContainer input::placeholder) {
-    @apply text-gray-400;
-  }
-
-  /* Ensure no text gets cut off */
-  :global(.phone-prefix-select .value-container) {
-    @apply overflow-visible;
-  }
-
-  :global(.phone-prefix-select .selectedItem > *) {
-    @apply overflow-visible whitespace-nowrap;
-  }
-</style>
-
-<!-- Add this verification modal to your template -->
-{#if isVerifying}
-    <div class="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-        <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-xl" 
-             transition:fade={{ duration: 200 }}>
-            <!-- Header with Icon -->
-            <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full 
-                            bg-[#605bff]/10 mb-4">
-                    <svg class="w-8 h-8 text-[#605bff]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                </div>
-                <h3 class="text-2xl font-bold text-gray-900">Verify your email</h3>
-                <p class="text-gray-600 mt-2">
-                    We've sent a verification code to<br>
-                    <span class="font-medium text-gray-900">{formData.email}</span>
-                </p>
-            </div>
-
-            <!-- Verification Code Input -->
-            <div class="mb-8">
-                <div class="flex justify-center gap-2">
-                    {#each Array(6) as _, i}
-                        <input
-                            type="text"
-                            maxlength="1"
-                            class="w-12 h-14 text-center text-xl font-bold rounded-xl
-                                   border-2 border-gray-200 focus:border-[#605bff] focus:ring-4 
-                                   focus:ring-[#605bff]/20 transition-all duration-200
-                                   {verificationError ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : ''}"
-                            on:input={(e) => {
-                                const value = e.target.value;
-                                if (value) {
-                                    verificationCode = verificationCode.slice(0, i) + value + verificationCode.slice(i + 1);
-                                    if (i < 5 && value) {
-                                        e.target.nextElementSibling?.focus();
-                                    }
-                                }
-                            }}
-                            on:keydown={(e) => {
-                                if (e.key === 'Backspace' && !e.target.value) {
-                                    verificationCode = verificationCode.slice(0, i) + verificationCode.slice(i + 1);
-                                    e.target.previousElementSibling?.focus();
-                                }
-                            }}
-                            value={verificationCode[i] || ''}
+                        </div>
+                        <input 
+                            id="confirmPassword"
+                            type="password"
+                            bind:value={confirmPassword}
+                            required
+                            class="input-field"
+                            placeholder="••••••••"
                         />
-                    {/each}
+                        <button 
+                            type="button" 
+                            class="input-action-btn"
+                            on:click={() => showPassword = !showPassword}
+                        >
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                      d={showPassword 
+                                          ? "M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" 
+                                          : "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z"} 
+                                />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
-                {#if verificationError}
-                    <div class="flex items-center justify-center gap-2 mt-3 text-red-500">
-                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        <span class="text-sm font-medium">{verificationError}</span>
+                <!-- Referral Code Field -->
+                <div class="form-group">
+                    <label class="form-label" for="referralCode">
+                        <span class="text-sm font-medium text-gray-700">Referral Code</span>
+                        <span class="ml-1 text-xs text-gray-400">(Optional)</span>
+                    </label>
+                    <div class="input-container">
+                        <div class="input-icon">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                      d="M15 9a3 3 0 11-6 0 3 3 0 016 0zm6 3a3 3 0 11-6 0 3 3 0 016 0zM6 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                        <input 
+                            id="referralCode"
+                            type="text"
+                            bind:value={referralCode}
+                            class="input-field"
+                            placeholder="Enter referral code"
+                        />
                     </div>
-                {/if}
+                </div>
+
+                <!-- Verification Slider -->
+                <div class="verify-container">
+                    <div class="verify-track">
+                        <div class="verify-text">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                      d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>{isVerified ? 'Verified ✓' : 'Slide to verify →'}</span>
+                        </div>
+                        
+                        <div class="verify-progress" 
+                             style="transform: translateX({sliderValue}%)">
+                        </div>
+                        
+                        <div class="verify-thumb" 
+                             style="left: {sliderValue}%"
+                             on:mousedown={startDragging}
+                             on:touchstart={handleTouchStart}>
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                      d="M9 5l7 7-7 7" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Terms Agreement -->
+                <div class="form-checkbox">
+                    <input 
+                        type="checkbox" 
+                        bind:checked={isAgreed}
+                        id="terms"
+                        class="form-checkbox-input"
+                    />
+                    <label for="terms" class="form-checkbox-label">
+                        I agree to the <a href="/terms" class="text-[#3772FF] hover:underline">Terms of Service</a> and 
+                        <a href="/privacy" class="text-[#3772FF] hover:underline">Privacy Policy</a>
+                    </label>
+                </div>
+
+                <!-- Submit Button -->
+                <button 
+                    type="submit" 
+                    class="w-full py-3 px-4 bg-[#3772FF] text-white rounded-lg font-medium
+                           transform transition-all duration-200 
+                           hover:bg-[#2952cc] hover:shadow-lg hover:-translate-y-0.5
+                           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3772FF]
+                           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none"
+                    disabled={!isVerified || !isAgreed}
+                >
+                    Create Account
+                </button>
+            </form>
+
+            <!-- Social Login -->
+            <div class="relative">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-200"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-2 bg-gray-50 text-gray-500">Or continue with</span>
+                </div>
             </div>
 
-            <!-- Timer and Resend -->
-            <div class="text-center mb-6">
-                {#if timeLeft > 0}
-                    <p class="text-sm text-gray-600">
-                        Request new code in <span class="font-medium text-[#605bff]">{formatTime(timeLeft)}</span>
-                    </p>
-                {:else}
-                    <button
-                        on:click={sendVerificationCode}
-                        disabled={isSendingCode}
-                        class="text-[#605bff] text-sm font-medium hover:text-[#605bff]/80 
-                               disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        {#if isSendingCode}
-                            <span class="flex items-center justify-center gap-2">
-                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Sending new code...
-                            </span>
-                        {:else}
-                            Resend verification code
-                        {/if}
-                    </button>
-                {/if}
+            <div class="grid grid-cols-2 gap-3">
+                <button class="social-button">
+                    <img src="/images/google-icon.png" alt="Google" class="w-5 h-5" />
+                    <span>Google</span>
+                </button>
+                <button class="social-button">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-2 16h-2v-6h2v6zm-1-6.891c-.607 0-1.1-.496-1.1-1.109 0-.612.492-1.109 1.1-1.109s1.1.497 1.1 1.109c0 .613-.493 1.109-1.1 1.109zm8 6.891h-1.998v-2.861c0-1.881-2.002-1.722-2.002 0v2.861h-2v-6h2v1.093c.872-1.616 4-1.736 4 1.548v3.359z"/>
+                    </svg>
+                    <span>LinkedIn</span>
+                </button>
             </div>
 
-            <!-- Verify Button -->
-            <button
-                on:click={verifyCode}
-                class="w-full bg-gradient-to-r from-[#605bff] to-[#8b7aff] text-white 
-                       px-6 py-3.5 rounded-xl font-medium flex items-center justify-center 
-                       gap-2 hover:opacity-90 transition-opacity"
-            >
-                Verify Email
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-            </button>
+            <div class="text-center text-sm text-gray-500">
+                Already have an account? 
+                <a href="/account/login" class="text-[#3772FF] font-medium hover:underline">Sign in</a>
+            </div>
         </div>
     </div>
-{/if}
+</div>
 
+<style>
+    :global(body) {
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+    }
+
+    input:focus {
+        outline: none;
+    }
+
+    /* Smooth transitions */
+    .transition-all {
+        transition-property: all;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transition-duration: 150ms;
+    }
+
+    input[type="checkbox"]:focus {
+        outline: 2px solid #3772FF;
+        outline-offset: 2px;
+    }
+    
+    input[type="checkbox"]:hover {
+        border-color: #3772FF;
+    }
+
+    input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 40px;
+        height: 40px;
+        background: transparent;
+        cursor: pointer;
+    }
+    
+    input[type="range"]::-moz-range-thumb {
+        width: 40px;
+        height: 40px;
+        background: transparent;
+        cursor: pointer;
+        border: none;
+    }
+    
+    .slider-track {
+        transition: transform 0.3s ease;
+    }
+
+    .verify-container {
+        position: relative;
+        width: 100%;
+        height: 40px;
+        background: #f8fafc;
+        border-radius: 20px;
+        overflow: hidden;
+        touch-action: none;
+    }
+
+    .verify-track {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: #fff;
+        border: 2px solid #e2e8f0;
+        border-radius: 20px;
+        transition: border-color 0.3s ease;
+    }
+
+    .verify-track:hover {
+        border-color: #3772FF;
+    }
+
+    .verify-text {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: #64748b;
+        font-size: 14px;
+        user-select: none;
+        z-index: 1;
+    }
+
+    .verify-progress {
+        position: absolute;
+        left: -100%;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, #3772FF20 0%, #3772FF40 100%);
+        transition: transform 0.3s ease;
+    }
+
+    .verify-thumb {
+        position: absolute;
+        top: 50%;
+        width: 36px;
+        height: 36px;
+        background: #3772FF;
+        border-radius: 18px;
+        transform: translate(-50%, -50%);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        box-shadow: 0 4px 6px -1px rgb(55 114 255 / 0.2);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        z-index: 2;
+    }
+
+    .verify-thumb:hover {
+        transform: translate(-50%, -50%) scale(1.05);
+        box-shadow: 0 10px 15px -3px rgb(55 114 255 / 0.3);
+    }
+
+    .verify-thumb:active {
+        transform: translate(-50%, -50%) scale(0.95);
+    }
+
+    /* Add these styles */
+    :global(html), :global(body) {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .overflow-y-auto {
+        scrollbar-width: thin;
+        scrollbar-color: #3772FF #f1f5f9;
+    }
+
+    .overflow-y-auto::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .overflow-y-auto::-webkit-scrollbar-track {
+        background: #f1f5f9;
+    }
+
+    .overflow-y-auto::-webkit-scrollbar-thumb {
+        background-color: #3772FF;
+        border-radius: 3px;
+    }
+
+    /* Add these new styles */
+    .form-group {
+        @apply space-y-1.5 mb-4;
+    }
+
+    .form-label {
+        @apply flex items-center mb-1.5;
+    }
+
+    .input-container {
+        @apply relative flex items-center;
+    }
+
+    .input-icon {
+        @apply absolute left-3 text-gray-400 pointer-events-none;
+    }
+
+    .input-field {
+        @apply w-full pl-10 pr-4 py-2.5 bg-white text-gray-900 text-sm
+               border border-gray-200 rounded-xl
+               placeholder:text-gray-400
+               transition duration-200
+               focus:outline-none focus:ring-2 focus:ring-[#3772FF]/20 focus:border-[#3772FF]
+               hover:border-[#3772FF]/50;
+    }
+
+    .input-action-btn {
+        @apply absolute right-3 text-gray-400 
+               hover:text-gray-600 transition-colors duration-200;
+    }
+
+    .password-strength {
+        @apply mt-2 space-y-1;
+    }
+
+    .strength-bars {
+        @apply flex gap-1;
+    }
+
+    .bar {
+        @apply h-1 flex-1 rounded-full bg-gray-200 transition-colors duration-300;
+    }
+
+    .bar.active {
+        @apply bg-[#3772FF];
+    }
+
+    /* Custom focus styles */
+    .input-field:focus {
+        @apply shadow-[0_0_0_4px_rgba(55,114,255,0.1)];
+    }
+
+    /* Custom hover styles */
+    .input-container:hover .input-icon {
+        @apply text-gray-500;
+    }
+
+    /* Error state */
+    .input-field.error {
+        @apply border-red-500 focus:ring-red-500/20 focus:border-red-500;
+    }
+
+    /* Success state */
+    .input-field.success {
+        @apply border-green-500 focus:ring-green-500/20 focus:border-green-500;
+    }
+
+    .form-checkbox-input {
+        @apply h-4 w-4 text-[#3772FF] focus:ring-[#3772FF] border-gray-300 rounded
+               transition-colors duration-200;
+    }
+
+    .form-checkbox-label {
+        @apply ml-2 block text-sm text-gray-600;
+    }
+
+    .social-button {
+        @apply w-full inline-flex justify-center items-center gap-2 px-4 py-2.5
+               bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700
+               hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3772FF]
+               transition-all duration-200;
+    }
+</style> 
