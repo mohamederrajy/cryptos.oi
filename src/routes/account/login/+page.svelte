@@ -1,5 +1,9 @@
 <script lang="ts">
     import { enhance } from '$app/forms';
+    import { goto } from '$app/navigation';
+    import { login } from '$lib/auth';
+    import { notifications } from '$lib/stores/notifications';
+    import { fade } from 'svelte/transition';
     import type { ActionData } from './$types';
     
     export let form: ActionData;
@@ -8,16 +12,81 @@
     let password = '';
     let showPassword = false;
     let rememberMe = false;
+    let isLoading = false;
+    let errorMessage = '';
 
     function handleSubmit() {
-        return async ({ result }) => {
-            if (result.type === 'success') {
-                // Handle successful login
-                window.location.href = '/';
+        return async ({ result, update }) => {
+            try {
+                isLoading = true;
+                errorMessage = '';
+
+                if (!email || !password) {
+                    errorMessage = 'Please fill in all fields';
+                    return;
+                }
+
+                const loginData = {
+                    email: email.trim(),
+                    password: password
+                };
+
+                const loginResult = await login(loginData);
+
+                if (loginResult.token) {
+                    // Show success message
+                    notifications.success('Login successful! Redirecting...');
+                    
+                    // Store user info
+                    localStorage.setItem('user', JSON.stringify(loginResult.user));
+                    
+                    // Delay redirect for smooth transition
+                    setTimeout(() => {
+                        goto('/', { replaceState: true });
+                    }, 1500);
+                } else {
+                    throw new Error('Login failed - No token received');
+                }
+
+            } catch (error: any) {
+                console.error('Login error:', error);
+                errorMessage = error.message || 'Invalid email or password';
+            } finally {
+                isLoading = false;
             }
         };
     }
 </script>
+
+{#if $notifications}
+    <div 
+        class="fixed top-4 right-4 z-50 max-w-sm"
+        transition:fade={{ duration: 200 }}
+    >
+        <div class="p-4 rounded-lg shadow-lg {
+            $notifications.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' :
+            $notifications.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
+            'bg-blue-50 text-blue-700 border border-blue-200'
+        }">
+            <div class="flex items-center gap-2">
+                {#if $notifications.type === 'success'}
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                {:else if $notifications.type === 'error'}
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                {:else}
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                {/if}
+                <p class="text-sm font-medium">{$notifications.message}</p>
+            </div>
+        </div>
+    </div>
+{/if}
 
 <div class="flex min-h-screen max-h-screen overflow-hidden">
     <!-- Left Section -->
@@ -61,24 +130,21 @@
                 <p class="text-gray-500">Sign in to continue to XonBIT</p>
             </div>
 
-            <form 
-                class="space-y-6" 
-                method="POST" 
-                use:enhance={handleSubmit}
-            >
-                {#if form?.error}
-                    <div class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                        {form.error}
-                    </div>
-                {/if}
+            <!-- Add error message display -->
+            {#if errorMessage}
+                <div class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                    {errorMessage}
+                </div>
+            {/if}
 
-                <!-- Email Field -->
+            <form class="space-y-6" method="POST" use:enhance={handleSubmit}>
+                <!-- Email Field - Enhanced -->
                 <div class="form-group">
                     <label class="form-label" for="email">
                         <span class="text-sm font-medium text-gray-700">Email</span>
                         <span class="ml-1 text-xs text-[#3772FF]">*</span>
                     </label>
-                    <div class="input-wrapper">
+                    <div class="input-wrapper group">
                         <div class="input-container">
                             <div class="input-icon">
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -111,13 +177,13 @@
                     </div>
                 </div>
 
-                <!-- Password Field -->
+                <!-- Password Field - Enhanced -->
                 <div class="form-group">
                     <label class="form-label" for="password">
                         <span class="text-sm font-medium text-gray-700">Password</span>
                         <span class="ml-1 text-xs text-[#3772FF]">*</span>
                     </label>
-                    <div class="input-wrapper">
+                    <div class="input-wrapper group">
                         <div class="input-container">
                             <div class="input-icon">
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -132,12 +198,15 @@
                                 bind:value={password}
                                 required
                                 class="input-field"
-                                placeholder="Enter your password"
+                                class:password-visible={showPassword}
+                                placeholder="••••••••"
+                                style="-webkit-text-security: {showPassword ? 'none' : 'disc'};"
                             />
                             <button 
                                 type="button" 
                                 class="input-action-btn"
                                 on:click={() => showPassword = !showPassword}
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
                             >
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
@@ -152,17 +221,36 @@
                     </div>
                 </div>
 
-                <!-- Remember Me & Forgot Password -->
+                <!-- Remember Me & Forgot Password - Enhanced -->
                 <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <input 
-                            type="checkbox" 
-                            id="remember-me"
-                            name="rememberMe"
-                            bind:checked={rememberMe}
-                            class="form-checkbox-input"
-                        />
-                        <label for="remember-me" class="form-checkbox-label">
+                    <div class="flex items-center gap-2">
+                        <div class="relative">
+                            <input 
+                                type="checkbox" 
+                                id="remember-me"
+                                name="rememberMe"
+                                bind:checked={rememberMe}
+                                class="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-gray-300
+                                       checked:bg-[#3772FF] checked:border-[#3772FF] 
+                                       transition-all duration-200
+                                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3772FF]/20"
+                            />
+                            <svg 
+                                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 text-white
+                                       pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity duration-200"
+                                fill="none" 
+                                viewBox="0 0 24 24" 
+                                stroke="currentColor"
+                            >
+                                <path 
+                                    stroke-linecap="round" 
+                                    stroke-linejoin="round" 
+                                    stroke-width="3" 
+                                    d="M5 13l4 4L19 7"
+                                />
+                            </svg>
+                        </div>
+                        <label for="remember-me" class="text-sm text-gray-600 select-none">
                             Remember me
                         </label>
                     </div>
@@ -177,39 +265,29 @@
                     class="w-full py-3 px-4 bg-[#3772FF] text-white rounded-lg font-medium
                            transform transition-all duration-200 
                            hover:bg-[#2952cc] hover:shadow-lg hover:-translate-y-0.5
-                           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3772FF]"
+                           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3772FF]
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isLoading}
                 >
-                    Sign in
+                    {#if isLoading}
+                        <div class="flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                            </svg>
+                            Signing in...
+                        </div>
+                    {:else}
+                        Sign in
+                    {/if}
                 </button>
+
+                <!-- Sign Up Link -->
+                <div class="text-center text-sm text-gray-500">
+                    Don't have an account? 
+                    <a href="/account/signup" class="text-[#3772FF] font-medium hover:underline">Sign up</a>
+                </div>
             </form>
-
-            <!-- Social Login -->
-            <div class="relative">
-                <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-gray-200"></div>
-                </div>
-                <div class="relative flex justify-center text-sm">
-                    <span class="px-2 bg-gray-50 text-gray-500">Or continue with</span>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <button class="social-button">
-                    <img src="/images/google-icon.png" alt="Google" class="w-5 h-5" />
-                    <span>Google</span>
-                </button>
-                <button class="social-button">
-                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-2 16h-2v-6h2v6zm-1-6.891c-.607 0-1.1-.496-1.1-1.109 0-.612.492-1.109 1.1-1.109s1.1.497 1.1 1.109c0 .613-.493 1.109-1.1 1.109zm8 6.891h-1.998v-2.861c0-1.881-2.002-1.722-2.002 0v2.861h-2v-6h2v1.093c.872-1.616 4-1.736 4 1.548v3.359z"/>
-                    </svg>
-                    <span>LinkedIn</span>
-                </button>
-            </div>
-
-            <div class="text-center text-sm text-gray-500">
-                Don't have an account? 
-                <a href="/account/signup" class="text-[#3772FF] font-medium hover:underline">Sign up</a>
-            </div>
         </div>
     </div>
 </div>
@@ -296,5 +374,17 @@
     input::-ms-reveal,
     input::-ms-clear {
         display: none;
+    }
+
+    .password-visible {
+        -webkit-text-security: none !important;
+        text-security: none !important;
+    }
+
+    @supports (-webkit-text-security: disc) {
+        input[type="password"] {
+            -webkit-text-security: disc;
+            text-security: disc;
+        }
     }
 </style> 

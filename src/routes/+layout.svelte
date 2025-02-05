@@ -6,6 +6,10 @@
     import { writable } from 'svelte/store';
     import { fade, fly } from 'svelte/transition';
     import Footer from "$lib/components/footer/footer.svelte";
+    import { session } from '$lib/stores/session';
+    import { notifications } from '$lib/stores/notifications';
+    import { slide } from 'svelte/transition';
+    import AuthenticatedNav from '$lib/components/AuthenticatedNav.svelte';
 
     const isSidebarOpen = writable(true);
     const toggleSidebar = () => isSidebarOpen.update(n => !n);
@@ -28,12 +32,21 @@
     $: console.log('Sidebar state:', $isSidebarOpen);
     $: console.log('Icon path:', sidebarIcon);
 
+    let showProfileMenu = false;
+
     onMount(() => {
         if (browser && isAuthenticated && user) {
             localStorage.setItem('authToken', user.token);
             localStorage.setItem('user', JSON.stringify(user));
         }
+        session.initialize();
     });
+
+    function handleLogout() {
+        session.logout();
+        notifications.success('Successfully logged out');
+        window.location.href = '/account/login';
+    }
 
     // Simpler route check
     $: isAccountPage = $page.url.pathname.includes('/account');
@@ -200,14 +213,69 @@
                             </svg>
                         </button>
                         <div class="h-6 w-px bg-gray-200 mx-2"></div>
-                        <a href="/account/login" 
-                           class="px-4 py-2 text-gray-700 hover:text-[#3772FF] font-medium transition-colors hover:bg-blue-50/40 rounded-lg">
-                            Log In
-                        </a>
-                        <a href="/account/signup" 
-                           class="px-4 py-2 text-white bg-[#3772FF] rounded-lg hover:bg-[#2952cc] transition-all duration-200 font-medium hover:shadow-md">
-                            Sign Up
-                        </a>
+
+                        {#if $session.isAuthenticated}
+                            <!-- User Profile Menu -->
+                            <div class="relative">
+                                <button 
+                                    class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50/40"
+                                    on:click={() => showProfileMenu = !showProfileMenu}
+                                >
+                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
+                                        {$session.user?.firstName?.[0]}{$session.user?.lastName?.[0]}
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-700">
+                                        {$session.user?.firstName}
+                                    </span>
+                                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+
+                                {#if showProfileMenu}
+                                    <div 
+                                        class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50"
+                                        transition:slide
+                                    >
+                                        <div class="px-4 py-2 border-b border-gray-100">
+                                            <div class="text-sm font-medium text-gray-900">
+                                                {$session.user?.firstName} {$session.user?.lastName}
+                                            </div>
+                                            <div class="text-xs text-gray-500">
+                                                {$session.user?.email}
+                                            </div>
+                                        </div>
+                                        <a 
+                                            href="/profile" 
+                                            class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        >
+                                            Profile Settings
+                                        </a>
+                                        <a 
+                                            href="/security" 
+                                            class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        >
+                                            Security
+                                        </a>
+                                        <button 
+                                            on:click={handleLogout}
+                                            class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                        >
+                                            Sign out
+                                        </button>
+                                    </div>
+                                {/if}
+                            </div>
+                        {:else}
+                            <a href="/account/login" 
+                               class="px-4 py-2 text-gray-700 hover:text-[#3772FF] font-medium transition-colors hover:bg-blue-50/40 rounded-lg">
+                                Log In
+                            </a>
+                            <a href="/account/signup" 
+                               class="px-4 py-2 text-white bg-[#3772FF] rounded-lg hover:bg-[#2952cc] transition-all duration-200 font-medium hover:shadow-md">
+                                Sign Up
+                            </a>
+                        {/if}
                     </div>
                 </div>
             </div>
@@ -227,60 +295,7 @@
     <slot />
 {/if}
 
-<style lang="scss">
-    :global(html), :global(body) {
-        @apply h-full overflow-x-hidden overflow-y-auto m-0 p-0;
-    }
-
-    :global(#app) {
-        @apply min-h-screen relative;
-    }
-
-    main {
-        @apply min-h-screen;
-        margin-left: 0;
-        width: calc(100% - var(--sidebar-width));
-    }
-
-    /* Enhanced scrollbar styling */
-    :global(::-webkit-scrollbar) {
-        width: 8px;
-    }
-
-    :global(::-webkit-scrollbar-track) {
-        @apply bg-transparent;
-        margin: 4px 0;
-    }
-
-    :global(::-webkit-scrollbar-thumb) {
-        @apply bg-gray-200 rounded-full;
-    }
-
-    :global(::-webkit-scrollbar-thumb:hover) {
-        @apply bg-gray-300;
-    }
-
-    /* Firefox scrollbar */
-    :global(html) {
-        scrollbar-width: thin;
-        scrollbar-color: #e5e7eb transparent;
-    }
-
-    /* Ensure content is scrollable */
-    :global(.content-wrapper) {
-        @apply h-full overflow-y-auto;
-    }
-
-    /* Fix for mobile devices */
-    @media (max-width: 768px) {
-        main {
-            width: 100%;
-            padding-left: 0;
-        }
-    }
-
-    .app-layout {
-        @apply min-h-screen bg-gray-50;
-    }
+<style lang="postcss">
+    /* Your styles here */
 </style>
 

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { slide, fade } from 'svelte/transition';
+    import { slide, fade, fly } from 'svelte/transition';
     
     let totalBalance = {
         btc: 0,
@@ -32,6 +32,9 @@
     };
     let withdrawAddress = '';
     let withdrawAmount = '';
+
+    let showDepositModal = false;
+    let selectedNetwork = 'BTC';
 
     // Add this new interface and data
     interface Cryptocurrency {
@@ -113,6 +116,34 @@
         }
     ];
 
+    const popularCryptos = [
+        {
+            symbol: 'BTC',
+            name: 'Bitcoin',
+            icon: '...'
+        },
+        {
+            symbol: 'ETH',
+            name: 'Ethereum',
+            icon: '...'
+        },
+        {
+            symbol: 'USDT',
+            name: 'Tether',
+            icon: '...'
+        },
+        {
+            symbol: 'BNB',
+            name: 'Binance Coin',
+            icon: '...'
+        },
+        {
+            symbol: 'LTC',
+            name: 'Litecoin',
+            icon: '...'
+        }
+    ];
+
     let showCryptoDropdown = false;
 
     // Add click outside handler
@@ -149,6 +180,53 @@
         closeWithdrawModal();
     }
 
+    function openDepositModal() {
+        showDepositModal = true;
+    }
+
+    function closeDepositModal() {
+        showDepositModal = false;
+    }
+
+    // Add these variables
+    let depositAddress = 'bc1qndtrpfh7da2qfwg6zgef0zcqt...';
+    let copySuccess = false;
+    let qrCode = ''; // You'll need to generate this based on the address
+
+    // Add this function for copy functionality
+    async function copyToClipboard(text: string) {
+        try {
+            await navigator.clipboard.writeText(text);
+            copySuccess = true;
+            setTimeout(() => copySuccess = false, 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
+    }
+
+    // Add network detection
+    $: networkOptions = {
+        BTC: ['BTC'],
+        ETH: ['ERC20'],
+        BNB: ['BEP20', 'BEP2'],
+        MATIC: ['Polygon'],
+        TRX: ['TRC20'],
+        SOL: ['Solana'],
+        USDT: ['TRC20', 'ERC20', 'BEP20'],
+        LTC: ['LTC'],
+        BCH: ['BCH']
+    };
+
+    $: availableNetworks = networkOptions[selectedCrypto.symbol] || ['BTC'];
+    $: selectedNetwork = availableNetworks[0];
+
+    // Update selected network when crypto changes
+    $: {
+        if (selectedCrypto) {
+            selectedNetwork = availableNetworks[0];
+        }
+    }
+
     onMount(() => {
         // Simulate loading
         setTimeout(() => {
@@ -163,163 +241,379 @@
 </script>
 
 {#if showWithdrawModal}
-    <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl w-full max-w-lg shadow-xl" 
-             in:fade={{ duration: 200 }}
-             out:fade={{ duration: 150 }}>
-            <!-- Modal Header -->
-            <div class="flex items-center justify-between p-6 border-b border-gray-100">
-                <h2 class="text-xl font-semibold text-gray-900">Withdraw</h2>
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl w-full max-w-[420px] shadow-xl" 
+             in:fade={{ duration: 150 }}
+             out:fade={{ duration: 100 }}>
+            <!-- Header -->
+            <div class="flex items-center justify-between p-4 border-b border-gray-100">
+                <div class="flex items-center gap-3">
+                    <img src={selectedCrypto.icon} alt={selectedCrypto.symbol} class="w-8 h-8">
+                    <h2 class="text-xl font-semibold text-gray-900">Withdraw {selectedCrypto.symbol}</h2>
+                </div>
                 <button 
-                    class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                     on:click={closeWithdrawModal}
                 >
-                    <svg class="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
 
-            <!-- Modal Content -->
-            <div class="p-6 space-y-6">
-                <!-- Crypto Selection -->
-                <div class="space-y-2">
-                    <label class="block text-sm font-medium text-gray-700">
-                        Select Cryptocurrency
-                    </label>
-                    <div class="relative" bind:this={dropdownRef}>
-                        <button 
-                            type="button"
-                            class="w-full flex items-center p-3 bg-white border border-gray-200 rounded-xl hover:border-[#3772FF] transition-colors"
-                            on:click|stopPropagation={() => showCryptoDropdown = !showCryptoDropdown}
-                        >
-                            <img 
-                                src={selectedCrypto.icon} 
-                                alt={selectedCrypto.symbol} 
-                                class="w-8 h-8 mr-3"
-                            >
-                            <div>
-                                <div class="font-medium">{selectedCrypto.symbol}</div>
-                                <div class="text-sm text-gray-500">{selectedCrypto.name}</div>
-                            </div>
-                            <svg 
-                                class="w-5 h-5 ml-auto text-gray-400 transition-transform duration-200" 
-                                class:rotate-180={showCryptoDropdown}
-                                fill="none" 
-                                viewBox="0 0 24 24" 
-                                stroke="currentColor"
-                            >
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </button>
+            <!-- Content -->
+            <div class="p-4 space-y-4">
+                <!-- Crypto Selector -->
+                <div class="relative" bind:this={dropdownRef}>
+                    <button 
+                        type="button"
+                        class="w-full flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                        on:click|stopPropagation={() => showCryptoDropdown = !showCryptoDropdown}
+                    >
+                        <img src={selectedCrypto.icon} alt={selectedCrypto.symbol} class="w-10 h-10">
+                        <div class="flex-1 text-left">
+                            <div class="text-lg font-medium">{selectedCrypto.symbol}</div>
+                            <div class="text-sm text-gray-500">{selectedCrypto.name}</div>
+                        </div>
+                        <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
 
-                        {#if showCryptoDropdown}
-                            <div 
-                                class="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg"
-                                transition:slide={{ duration: 200 }}
-                                on:click|stopPropagation
-                            >
-                                <div class="py-2 max-h-60 overflow-y-auto">
-                                    {#each cryptocurrencies as crypto}
-                                        <button
-                                            type="button"
-                                            class="w-full flex items-center px-4 py-3 hover:bg-gray-50 transition-colors"
-                                            class:bg-blue-50={selectedCrypto.symbol === crypto.symbol}
-                                            on:click={() => selectCrypto(crypto)}
-                                        >
-                                            <img 
-                                                src={crypto.icon} 
-                                                alt={crypto.symbol} 
-                                                class="w-8 h-8 mr-3"
+                    {#if showCryptoDropdown}
+                        <div 
+                            class="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg"
+                            transition:slide={{ duration: 150 }}
+                        >
+                            <div class="p-2">
+                                <div class="text-xs font-medium text-gray-500 px-3 py-2">Popular Coins</div>
+                                <div class="grid grid-cols-1 gap-1">
+                                    {#each ['BTC', 'ETH', 'USDT', 'BNB', 'LTC'] as symbol}
+                                        {@const crypto = cryptocurrencies.find(c => c.symbol === symbol)}
+                                        {#if crypto}
+                                            <button
+                                                type="button"
+                                                class="w-full flex items-center px-3 py-2.5 hover:bg-gray-50 rounded-lg transition-colors"
+                                                class:bg-blue-50={selectedCrypto.symbol === crypto.symbol}
+                                                on:click={() => selectCrypto(crypto)}
                                             >
-                                            <div>
-                                                <div class="font-medium">{crypto.symbol}</div>
-                                                <div class="text-sm text-gray-500">{crypto.name}</div>
-                                            </div>
-                                            {#if selectedCrypto.symbol === crypto.symbol}
-                                                <svg class="w-5 h-5 ml-auto text-[#3772FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            {/if}
-                                        </button>
+                                                <img src={crypto.icon} alt={crypto.symbol} class="w-8 h-8 mr-3">
+                                                <div>
+                                                    <div class="font-medium">{crypto.symbol}</div>
+                                                    <div class="text-sm text-gray-500">{crypto.name}</div>
+                                                </div>
+                                                {#if selectedCrypto.symbol === crypto.symbol}
+                                                    <svg class="w-5 h-5 ml-auto text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                {/if}
+                                            </button>
+                                        {/if}
                                     {/each}
                                 </div>
                             </div>
-                        {/if}
+                        </div>
+                    {/if}
+                </div>
+
+                <!-- Network Selection -->
+                <div class="space-y-2">
+                    <div class="text-sm font-medium text-gray-700">Choose network</div>
+                    <div class="flex flex-wrap gap-2">
+                        {#each availableNetworks as network}
+                            <button 
+                                class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                                       {selectedNetwork === network ? 
+                                       'bg-blue-50 text-blue-600 ring-1 ring-blue-600/20' : 
+                                       'bg-gray-50 text-gray-600 hover:bg-gray-100'}"
+                                on:click={() => selectedNetwork = network}
+                            >
+                                <div class="flex items-center gap-2">
+                                    {#if network === 'TRC20'}
+                                        <span class="text-[#FF060A]">●</span>
+                                    {:else if network === 'ERC20'}
+                                        <span class="text-[#627EEA]">●</span>
+                                    {:else if network === 'BEP20'}
+                                        <span class="text-[#F3BA2F]">●</span>
+                                    {:else}
+                                        <span class="text-gray-400">●</span>
+                                    {/if}
+                                    {network}
+                                </div>
+                            </button>
+                        {/each}
                     </div>
+                </div>
+
+                <!-- Balance -->
+                <div class="bg-gray-50 rounded-lg p-3 space-y-0.5">
+                    <div class="text-xs font-medium text-gray-500">Available Balance</div>
+                    <div class="text-lg font-semibold">0 {selectedCrypto.symbol}</div>
+                    <div class="text-xs text-gray-500">≈ $0.00</div>
                 </div>
 
                 <!-- Address Input -->
                 <div class="space-y-2">
-                    <label for="address" class="block text-sm font-medium text-gray-700">
-                        Address
-                    </label>
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm font-medium text-gray-700">Withdrawal Address</div>
+                        <div class="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-500">
+                            Network: {selectedNetwork}
+                        </div>
+                    </div>
                     <input 
                         type="text"
-                        id="address"
                         bind:value={withdrawAddress}
                         placeholder="Enter withdrawal address"
-                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3772FF]/20 focus:border-[#3772FF] transition-colors"
+                        class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono
+                               focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
                     >
                 </div>
 
                 <!-- Amount Input -->
                 <div class="space-y-2">
-                    <label for="amount" class="block text-sm font-medium text-gray-700">
-                        Amount to withdraw
-                    </label>
+                    <label class="text-sm font-medium text-gray-700">Amount</label>
                     <div class="relative">
                         <input 
                             type="text"
-                            id="amount"
                             bind:value={withdrawAmount}
                             placeholder="0.00"
-                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3772FF]/20 focus:border-[#3772FF] transition-colors"
+                            class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm
+                                   focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
                         >
                         <button 
-                            class="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-1 text-sm text-[#3772FF] hover:bg-[#3772FF]/10 rounded-lg transition-colors"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-sm text-blue-600 
+                                   hover:bg-blue-50 rounded-lg transition-colors"
                         >
-                            Max Amount
+                            Max
                         </button>
                     </div>
                 </div>
 
-                <!-- Available Balance -->
-                <div class="p-4 bg-green-50 rounded-xl border border-green-100">
-                    <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Available balance</span>
-                        <span class="font-medium text-gray-900">0 BTC</span>
-                    </div>
-                    <div class="flex justify-between text-sm mt-1">
-                        <span class="text-gray-600">Transaction fee</span>
-                        <span class="font-medium text-gray-900">0.00011 BTC</span>
-                    </div>
+                <!-- Fee Info -->
+                <div class="flex items-center justify-between text-sm p-3 bg-gray-50 rounded-lg">
+                    <span class="text-gray-500">Network Fee</span>
+                    <span class="font-medium">0.00011 {selectedCrypto.symbol}</span>
                 </div>
 
-                <!-- Daily Limit Warning -->
-                <div class="p-4 bg-orange-50 rounded-xl border border-orange-100 text-sm text-orange-800">
-                    $20,000.00 daily withdrawal limit.
+                <!-- Submit Button -->
+                <button 
+                    class="w-full py-3 bg-blue-600 text-white rounded-lg font-medium
+                           hover:bg-blue-700 transition-colors"
+                    on:click={handleWithdraw}
+                >
+                    Withdraw {selectedCrypto.symbol}
+                </button>
+
+                <!-- Withdrawal Info -->
+                <div class="text-xs text-gray-500 text-center">
+                    Daily withdrawal limit: $20,000.00
                 </div>
             </div>
+        </div>
+    </div>
+{/if}
 
-            <!-- Modal Footer -->
-            <div class="flex items-center justify-between p-6 border-t border-gray-100">
-                <div class="text-sm text-gray-500">
-                    Transaction fee: <span class="font-medium text-gray-900">0.00011 BTC</span>
+{#if showDepositModal}
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl w-full max-w-[420px] shadow-xl" 
+             in:fade={{ duration: 150 }}
+             out:fade={{ duration: 100 }}>
+            <!-- Header -->
+            <div class="flex items-center justify-between p-4 border-b border-gray-100">
+                <div class="flex items-center gap-3">
+                    <img src={selectedCrypto.icon} alt={selectedCrypto.symbol} class="w-8 h-8">
+                    <h2 class="text-xl font-semibold text-gray-900">Deposit {selectedCrypto.symbol}</h2>
                 </div>
-                <div class="flex gap-3">
+                <button 
+                    class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    on:click={closeDepositModal}
+                >
+                    <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Content -->
+            <div class="p-4 space-y-4">
+                <!-- Crypto Selector with Popular Coins -->
+                <div class="relative" bind:this={dropdownRef}>
                     <button 
-                        class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                        on:click={closeWithdrawModal}
+                        type="button"
+                        class="w-full flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                        on:click|stopPropagation={() => showCryptoDropdown = !showCryptoDropdown}
                     >
-                        Cancel
+                        <img src={selectedCrypto.icon} alt={selectedCrypto.symbol} class="w-10 h-10">
+                        <div class="flex-1 text-left">
+                            <div class="text-lg font-medium">{selectedCrypto.symbol}</div>
+                            <div class="text-sm text-gray-500">{selectedCrypto.name}</div>
+                        </div>
+                        <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
                     </button>
-                    <button 
-                        class="px-4 py-2 bg-[#3772FF] text-white rounded-lg hover:bg-[#2952cc] transition-colors"
-                        on:click={handleWithdraw}
-                    >
-                        Withdraw
-                    </button>
+
+                    {#if showCryptoDropdown}
+                        <div 
+                            class="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg"
+                            transition:slide={{ duration: 150 }}
+                        >
+                            <div class="p-2">
+                                <div class="text-xs font-medium text-gray-500 px-3 py-2">Popular Coins</div>
+                                <div class="grid grid-cols-1 gap-1">
+                                    {#each ['BTC', 'ETH', 'USDT', 'BNB', 'LTC'] as symbol}
+                                        {@const crypto = cryptocurrencies.find(c => c.symbol === symbol)}
+                                        {#if crypto}
+                                            <button
+                                                type="button"
+                                                class="w-full flex items-center px-3 py-2.5 hover:bg-gray-50 rounded-lg transition-colors"
+                                                class:bg-blue-50={selectedCrypto.symbol === crypto.symbol}
+                                                on:click={() => selectCrypto(crypto)}
+                                            >
+                                                <img src={crypto.icon} alt={crypto.symbol} class="w-8 h-8 mr-3">
+                                                <div>
+                                                    <div class="font-medium">{crypto.symbol}</div>
+                                                    <div class="text-sm text-gray-500">{crypto.name}</div>
+                                                </div>
+                                                {#if selectedCrypto.symbol === crypto.symbol}
+                                                    <svg class="w-5 h-5 ml-auto text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                {/if}
+                                            </button>
+                                        {/if}
+                                    {/each}
+                                </div>
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+
+                <!-- Network -->
+                <div class="space-y-2">
+                    <div class="text-sm font-medium text-gray-700">Choose network</div>
+                    <div class="flex flex-wrap gap-2">
+                        {#each availableNetworks as network}
+                            <button 
+                                class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                                       {selectedNetwork === network ? 
+                                       'bg-blue-50 text-blue-600 ring-1 ring-blue-600/20' : 
+                                       'bg-gray-50 text-gray-600 hover:bg-gray-100'}"
+                                on:click={() => selectedNetwork = network}
+                            >
+                                <div class="flex items-center gap-2">
+                                    {#if network === 'TRC20'}
+                                        <span class="text-[#FF060A]">●</span>
+                                    {:else if network === 'ERC20'}
+                                        <span class="text-[#627EEA]">●</span>
+                                    {:else if network === 'BEP20'}
+                                        <span class="text-[#F3BA2F]">●</span>
+                                    {:else}
+                                        <span class="text-gray-400">●</span>
+                                    {/if}
+                                    {network}
+                                </div>
+                            </button>
+                        {/each}
+                    </div>
+                    {#if selectedCrypto.symbol === 'USDT'}
+                        <div class="text-xs text-gray-500 space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[#FF060A]">●</span>
+                                <span>TRC20: Lowest fees, fastest transactions</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[#627EEA]">●</span>
+                                <span>ERC20: Higher fees, Ethereum network</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[#F3BA2F]">●</span>
+                                <span>BEP20: Low fees, Binance Smart Chain</span>
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+
+                <!-- Balance -->
+                <div class="bg-gray-50 rounded-lg p-3 space-y-0.5">
+                    <div class="text-xs font-medium text-gray-500">Total Balance</div>
+                    <div class="text-lg font-semibold">0 {selectedCrypto.symbol}</div>
+                    <div class="text-xs text-gray-500">≈ $0.00</div>
+                </div>
+
+                <!-- Address -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm font-medium text-gray-700">Deposit Address</div>
+                        <div class="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-500">
+                            Network: {selectedNetwork}
+                        </div>
+                    </div>
+
+                    <!-- Warning Message -->
+                    <div class="flex items-start gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                        <svg class="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p class="text-xs text-blue-700 leading-relaxed">
+                            Only send <span class="font-medium">{selectedCrypto.symbol}</span> on <span class="font-medium">{selectedNetwork}</span> network to this address. Sending any other asset may result in permanent loss.
+                        </p>
+                    </div>
+
+                    <!-- Address Box -->
+                    <div class="bg-white rounded-lg border border-gray-200 p-3">
+                        <div class="flex items-center gap-3">
+                            <div class="flex-1 font-mono text-sm bg-gray-50 p-3 rounded-lg break-all">
+                                {depositAddress}
+                            </div>
+                            <button 
+                                class="p-2 hover:bg-gray-100 rounded-lg transition-colors relative group"
+                                on:click={() => copyToClipboard(depositAddress)}
+                            >
+                                {#if copySuccess}
+                                    <div 
+                                        class="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg"
+                                        transition:fade={{ duration: 100 }}
+                                    >
+                                        <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                                        Copied!
+                                    </div>
+                                {/if}
+                                <svg 
+                                    class="w-5 h-5 text-gray-500 group-hover:text-blue-600 transition-colors" 
+                                    fill="none" 
+                                    viewBox="0 0 24 24" 
+                                    stroke="currentColor"
+                                >
+                                    <path 
+                                        stroke-linecap="round" 
+                                        stroke-linejoin="round" 
+                                        stroke-width="2" 
+                                        d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-2M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" 
+                                    />
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="mt-2 flex items-center justify-between text-xs text-gray-500">
+                            <span>Minimum deposit: 0.0001 {selectedCrypto.symbol}</span>
+                            <span>Processing time: ~10 minutes</span>
+                        </div>
+                    </div>
+
+                    <!-- QR Code -->
+                    <div class="flex flex-col items-center gap-2 py-2">
+                        <div class="w-40 h-40 bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-200 transition-colors">
+                            <img 
+                                src={qrCode || '/images/qr-placeholder.png'} 
+                                alt="QR Code"
+                                class="w-full h-full"
+                            />
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            Scan to copy address
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -338,9 +632,9 @@
                 Refresh
             </button>
             <div class="relative">
-                <button class="btn-secondary">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                <button class="btn-secondary" on:click={openDepositModal}>
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
                     </svg>
                 </button>
             </div>
@@ -368,7 +662,7 @@
                     </svg>
                     Withdraw
                 </button>
-                <button class="btn-secondary">
+                <button class="btn-secondary" on:click={openDepositModal}>
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
                     </svg>

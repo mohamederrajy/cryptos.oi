@@ -1,6 +1,8 @@
 <script lang="ts">
     import { enhance } from '$app/forms';
     import { onMount } from 'svelte';
+    import { signup } from '$lib/auth';
+    import { goto } from '$app/navigation';
     
     // TypeScript declarations
     declare global {
@@ -30,6 +32,13 @@
     let startLeft = 0;
 
     let showPassword = false;
+
+    // Add these variables
+    let firstName = '';
+    let lastName = '';
+
+    let errorMessage = '';
+    let isLoading = false;
 
     onMount(() => {
         // Load reCAPTCHA script dynamically
@@ -142,21 +151,43 @@
         event.preventDefault();
         
         if (!isVerified) {
-            alert('Please verify that you are not a robot');
+            errorMessage = 'Please verify that you are not a robot';
             return;
         }
 
         if (password !== confirmPassword) {
-            alert('Passwords do not match');
+            errorMessage = 'Passwords do not match';
             return;
         }
 
         if (!isAgreed) {
-            alert('Please agree to the terms and conditions');
+            errorMessage = 'Please agree to the terms and conditions';
             return;
         }
 
-        // Your form submission logic here
+        try {
+            isLoading = true;
+            errorMessage = '';
+
+            const signupData = {
+                firstName,
+                lastName,
+                email,
+                password,
+                confirmPassword
+            };
+
+            const result = await signup(signupData);
+
+            // If signup successful, redirect to login
+            goto('/account/login?registered=true');
+
+        } catch (error) {
+            console.error('Signup error:', error);
+            errorMessage = error.message || 'Failed to create account. Please try again.';
+        } finally {
+            isLoading = false;
+        }
     }
 </script>
 
@@ -226,15 +257,73 @@
     </div>
 
     <!-- Right Section - adjust padding and form spacing -->
-    <div class="w-1/2 p-8 flex items-center bg-gray-50 overflow-y-auto">
-        <div class="w-full max-w-md mx-auto space-y-8">
+    <div class="w-1/2 p-6 flex items-center bg-gray-50">
+        <div class="w-full max-w-md mx-auto space-y-6">
             <!-- Form Header -->
-            <div class="text-center space-y-2">
-                <h2 class="text-2xl font-bold text-gray-900">Create an Account</h2>
-                <p class="text-gray-500">Join the world's leading crypto exchange</p>
+            <div class="text-center space-y-1">
+                <h2 class="text-xl font-bold text-gray-900">Create an Account</h2>
+                <p class="text-sm text-gray-500">Join the world's leading crypto exchange</p>
             </div>
 
-            <form class="space-y-6" on:submit={handleSubmit}>
+            <!-- Add error message display -->
+            {#if errorMessage}
+                <div class="p-3 mb-4 text-sm text-red-500 bg-red-50 rounded-lg">
+                    {errorMessage}
+                </div>
+            {/if}
+
+            <form class="space-y-4" on:submit={handleSubmit}>
+                <!-- Name Fields in same line -->
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- First Name Field -->
+                    <div class="form-group">
+                        <label class="form-label" for="firstName">
+                            <span class="text-sm font-medium text-gray-700">First Name</span>
+                            <span class="ml-1 text-xs text-[#3772FF]">*</span>
+                        </label>
+                        <div class="input-container">
+                            <div class="input-icon">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                            </div>
+                            <input 
+                                id="firstName"
+                                type="text"
+                                bind:value={firstName}
+                                required
+                                class="input-field"
+                                placeholder="John"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- Last Name Field -->
+                    <div class="form-group">
+                        <label class="form-label" for="lastName">
+                            <span class="text-sm font-medium text-gray-700">Last Name</span>
+                            <span class="ml-1 text-xs text-[#3772FF]">*</span>
+                        </label>
+                        <div class="input-container">
+                            <div class="input-icon">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                            </div>
+                            <input 
+                                id="lastName"
+                                type="text"
+                                bind:value={lastName}
+                                required
+                                class="input-field"
+                                placeholder="Doe"
+                            />
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Email Field -->
                 <div class="form-group">
                     <label class="form-label" for="email">
@@ -365,88 +454,131 @@
                     </div>
                 </div>
 
-                <!-- Verification Slider -->
-                <div class="verify-container">
-                    <div class="verify-track">
-                        <div class="verify-text">
-                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <!-- Enhanced Captcha Section -->
+                <div class="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-700">Security Check</span>
+                        <button 
+                            type="button"
+                            class="text-[#3772FF] hover:text-[#2952cc] text-sm p-1"
+                            on:click={() => {
+                                sliderValue = 0;
+                                isVerified = false;
+                            }}
+                        >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                      d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
-                            <span>{isVerified ? 'Verified ✓' : 'Slide to verify →'}</span>
-                        </div>
-                        
-                        <div class="verify-progress" 
-                             style="transform: translateX({sliderValue}%)">
-                        </div>
-                        
-                        <div class="verify-thumb" 
-                             style="left: {sliderValue}%"
-                             on:mousedown={startDragging}
-                             on:touchstart={handleTouchStart}>
-                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                      d="M9 5l7 7-7 7" />
-                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="verify-container bg-gray-50 rounded-lg overflow-hidden h-12">
+                        <div class="verify-track relative h-full">
+                            <div class="verify-text flex items-center justify-center gap-2 h-full">
+                                {#if !isVerified}
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-gray-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span class="text-sm text-gray-500">Slide right to verify</span>
+                                    </div>
+                                {:else}
+                                    <div class="flex items-center gap-2 text-green-500">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        <span class="text-sm font-medium">Verified</span>
+                                    </div>
+                                {/if}
+                            </div>
+                            
+                            <div class="verify-progress absolute inset-0"
+                                 style="transform: translateX({sliderValue - 100}%)">
+                                <div class="h-full w-full bg-gradient-to-r from-[#3772FF]/5 to-[#3772FF]/20"></div>
+                            </div>
+                            
+                            <div class="verify-thumb absolute top-1/2 -translate-y-1/2"
+                                 style="left: {sliderValue}%"
+                                 on:mousedown={startDragging}
+                                 on:touchstart={handleTouchStart}>
+                                <div class="w-8 h-8 bg-[#3772FF] rounded-full flex items-center justify-center
+                                          shadow-lg cursor-pointer transform transition-all duration-200
+                                          hover:scale-105 hover:shadow-xl active:scale-95">
+                                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                              d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- Terms Agreement -->
-                <div class="form-checkbox">
-                    <input 
-                        type="checkbox" 
-                        bind:checked={isAgreed}
-                        id="terms"
-                        class="form-checkbox-input"
-                    />
-                    <label for="terms" class="form-checkbox-label">
-                        I agree to the <a href="/terms" class="text-[#3772FF] hover:underline">Terms of Service</a> and 
-                        <a href="/privacy" class="text-[#3772FF] hover:underline">Privacy Policy</a>
-                    </label>
                 </div>
 
                 <!-- Submit Button -->
                 <button 
                     type="submit" 
-                    class="w-full py-3 px-4 bg-[#3772FF] text-white rounded-lg font-medium
+                    class="w-full py-2.5 bg-[#3772FF] text-white rounded-lg font-medium
                            transform transition-all duration-200 
-                           hover:bg-[#2952cc] hover:shadow-lg hover:-translate-y-0.5
+                           hover:bg-[#2952cc] hover:shadow-lg
                            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3772FF]
-                           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none"
-                    disabled={!isVerified || !isAgreed}
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!isVerified || !isAgreed || isLoading}
                 >
-                    Create Account
+                    {#if isLoading}
+                        <div class="flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                            </svg>
+                            Creating account...
+                        </div>
+                    {:else}
+                        Create Account
+                    {/if}
                 </button>
+
+                <!-- Terms Agreement moved below button -->
+                <div class="flex items-center justify-center gap-2 mt-4">
+                    <div class="relative">
+                        <input 
+                            type="checkbox" 
+                            bind:checked={isAgreed}
+                            id="terms"
+                            class="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-gray-300
+                                   checked:bg-[#3772FF] checked:border-[#3772FF] 
+                                   transition-all duration-200
+                                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3772FF]/20"
+                        />
+                        <svg 
+                            class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 text-white
+                                   pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity duration-200"
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor"
+                        >
+                            <path 
+                                stroke-linecap="round" 
+                                stroke-linejoin="round" 
+                                stroke-width="3" 
+                                d="M5 13l4 4L19 7"
+                            />
+                        </svg>
+                    </div>
+                    <label for="terms" class="text-sm text-gray-600 select-none">
+                        I agree to the <a href="/terms" class="text-[#3772FF] hover:underline font-medium">Terms</a> and 
+                        <a href="/privacy" class="text-[#3772FF] hover:underline font-medium">Privacy Policy</a>
+                    </label>
+                </div>
+
+                <!-- Simple Sign In Link -->
+                <div class="text-center text-sm text-gray-500">
+                    Already have an account? 
+                    <a href="/account/login" class="text-[#3772FF] font-medium hover:underline">Sign in</a>
+                </div>
             </form>
-
-            <!-- Social Login -->
-            <div class="relative">
-                <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-gray-200"></div>
-                </div>
-                <div class="relative flex justify-center text-sm">
-                    <span class="px-2 bg-gray-50 text-gray-500">Or continue with</span>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <button class="social-button">
-                    <img src="/images/google-icon.png" alt="Google" class="w-5 h-5" />
-                    <span>Google</span>
-                </button>
-                <button class="social-button">
-                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-2 16h-2v-6h2v6zm-1-6.891c-.607 0-1.1-.496-1.1-1.109 0-.612.492-1.109 1.1-1.109s1.1.497 1.1 1.109c0 .613-.493 1.109-1.1 1.109zm8 6.891h-1.998v-2.861c0-1.881-2.002-1.722-2.002 0v2.861h-2v-6h2v1.093c.872-1.616 4-1.736 4 1.548v3.359z"/>
-                    </svg>
-                    <span>LinkedIn</span>
-                </button>
-            </div>
-
-            <div class="text-center text-sm text-gray-500">
-                Already have an account? 
-                <a href="/account/login" class="text-[#3772FF] font-medium hover:underline">Sign in</a>
-            </div>
         </div>
     </div>
 </div>
@@ -508,78 +640,30 @@
     .verify-container {
         position: relative;
         width: 100%;
-        height: 40px;
         background: #f8fafc;
-        border-radius: 20px;
+        border-radius: 0.75rem;
         overflow: hidden;
         touch-action: none;
     }
 
     .verify-track {
-        position: relative;
-        width: 100%;
-        height: 100%;
         background: #fff;
         border: 2px solid #e2e8f0;
-        border-radius: 20px;
-        transition: border-color 0.3s ease;
+        border-radius: 0.75rem;
+        transition: all 0.3s ease;
     }
 
     .verify-track:hover {
         border-color: #3772FF;
+        box-shadow: 0 0 0 4px rgba(55, 114, 255, 0.1);
     }
 
     .verify-text {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        color: #64748b;
-        font-size: 14px;
-        user-select: none;
-        z-index: 1;
+        transition: all 0.3s ease;
     }
 
     .verify-progress {
-        position: absolute;
-        left: -100%;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, #3772FF20 0%, #3772FF40 100%);
         transition: transform 0.3s ease;
-    }
-
-    .verify-thumb {
-        position: absolute;
-        top: 50%;
-        width: 36px;
-        height: 36px;
-        background: #3772FF;
-        border-radius: 18px;
-        transform: translate(-50%, -50%);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        box-shadow: 0 4px 6px -1px rgb(55 114 255 / 0.2);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        z-index: 2;
-    }
-
-    .verify-thumb:hover {
-        transform: translate(-50%, -50%) scale(1.05);
-        box-shadow: 0 10px 15px -3px rgb(55 114 255 / 0.3);
-    }
-
-    .verify-thumb:active {
-        transform: translate(-50%, -50%) scale(0.95);
     }
 
     /* Add these styles */
@@ -687,5 +771,22 @@
                bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700
                hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3772FF]
                transition-all duration-200;
+    }
+
+    /* Enhanced checkbox styles */
+    input[type="checkbox"] {
+        background-image: none;
+    }
+
+    input[type="checkbox"]:hover {
+        @apply border-[#3772FF]/50;
+    }
+
+    input[type="checkbox"]:checked:hover {
+        @apply bg-[#2952cc] border-[#2952cc];
+    }
+
+    input[type="checkbox"]:focus {
+        @apply outline-none ring-2 ring-offset-2 ring-[#3772FF]/20;
     }
 </style> 
