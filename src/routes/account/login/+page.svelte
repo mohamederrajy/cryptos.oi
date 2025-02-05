@@ -15,7 +15,7 @@
     let isLoading = false;
     let errorMessage = '';
 
-    function handleSubmit() {
+    async function handleSubmit() {
         return async ({ result, update }) => {
             try {
                 isLoading = true;
@@ -31,21 +31,21 @@
                     password: password
                 };
 
+                console.log('Login attempt with:', { email: loginData.email });
+
                 const loginResult = await login(loginData);
+                console.log('Login response:', {
+                    success: true,
+                    userId: loginResult.user.id,
+                    email: loginResult.user.email,
+                    token: 'exists'
+                });
 
                 if (loginResult.token) {
-                    // Show success message
                     notifications.success('Login successful! Redirecting...');
-                    
-                    // Store user info
-                    localStorage.setItem('user', JSON.stringify(loginResult.user));
-                    
-                    // Delay redirect for smooth transition
                     setTimeout(() => {
                         goto('/', { replaceState: true });
                     }, 1500);
-                } else {
-                    throw new Error('Login failed - No token received');
                 }
 
             } catch (error: any) {

@@ -1,22 +1,24 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { slide, fade, fly } from 'svelte/transition';
+    import { session } from '$lib/stores/session';
     
-    let totalBalance = {
-        btc: 0,
-        usd: 0.00,
+    // Initialize balances from session user data
+    $: totalBalance = {
+        btc: $session.user?.wallet?.totalBalance?.btc || 0,
+        usd: $session.user?.wallet?.totalBalance?.usd || 0.00,
         change: '+0.00%'
     };
 
-    let assetBalance = {
-        btc: 0,
-        usd: 0.00,
+    $: assetBalance = {
+        btc: $session.user?.wallet?.assetBalance?.btc || 0,
+        usd: $session.user?.wallet?.assetBalance?.usd || 0.00,
         change: '+0.00%'
     };
 
-    let exchangeBalance = {
-        btc: 0,
-        usd: 0.00,
+    $: exchangeBalance = {
+        btc: $session.user?.wallet?.exchangeBalance?.btc || 0,
+        usd: $session.user?.wallet?.exchangeBalance?.usd || 0.00,
         change: '+0.00%'
     };
 
@@ -227,14 +229,35 @@
         }
     }
 
-    onMount(() => {
-        // Simulate loading
-        setTimeout(() => {
-            isLoading = false;
-        }, 1000);
+    // Add this function to refresh wallet data
+    async function refreshWalletData() {
+        try {
+            const response = await fetch(`${PUBLIC_API_URL}/api/user/wallet`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                session.updateWallet(data.wallet);
+            }
+        } catch (error) {
+            console.error('Failed to refresh wallet data:', error);
+        }
+    }
+
+    onMount(async () => {
+        // Initial data load
+        await refreshWalletData();
+        isLoading = false;
+
+        // Set up auto-refresh interval (every 30 seconds)
+        const refreshInterval = setInterval(refreshWalletData, 30000);
 
         document.addEventListener('click', handleClickOutside);
         return () => {
+            clearInterval(refreshInterval);
             document.removeEventListener('click', handleClickOutside);
         };
     });

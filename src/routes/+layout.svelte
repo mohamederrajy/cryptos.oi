@@ -10,6 +10,7 @@
     import { notifications } from '$lib/stores/notifications';
     import { slide } from 'svelte/transition';
     import AuthenticatedNav from '$lib/components/AuthenticatedNav.svelte';
+    import { getProfileImageUrl } from '$lib/utils/image';
 
     const isSidebarOpen = writable(true);
     const toggleSidebar = () => isSidebarOpen.update(n => !n);
@@ -35,17 +36,23 @@
     let showProfileMenu = false;
 
     onMount(() => {
-        if (browser && isAuthenticated && user) {
-            localStorage.setItem('authToken', user.token);
-            localStorage.setItem('user', JSON.stringify(user));
-        }
+        // Initialize session from localStorage
         session.initialize();
     });
 
     function handleLogout() {
+        showProfileMenu = false;
         session.logout();
         notifications.success('Successfully logged out');
         window.location.href = '/account/login';
+    }
+
+    // Close profile menu when clicking outside
+    function handleClickOutside(event: MouseEvent) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('.profile-menu')) {
+            showProfileMenu = false;
+        }
     }
 
     // Simpler route check
@@ -58,6 +65,8 @@
     <meta content="coderthemes" name="author"/>
     <link rel="shortcut icon" href="/favicon.ico"/>
 </svelte:head>
+
+<svelte:window on:click={handleClickOutside} />
 
 {#if !isAccountPage}
     <div class="app-layout">
@@ -215,18 +224,40 @@
                         <div class="h-6 w-px bg-gray-200 mx-2"></div>
 
                         {#if $session.isAuthenticated}
-                            <!-- User Profile Menu -->
-                            <div class="relative">
+                            <div class="relative profile-menu">
                                 <button 
                                     class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50/40"
                                     on:click={() => showProfileMenu = !showProfileMenu}
                                 >
-                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
-                                        {$session.user?.firstName?.[0]}{$session.user?.lastName?.[0]}
+                                    <div class="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-blue-500">
+                                        {#if $session.user?.profileImage}
+                                            <img 
+                                                src={getProfileImageUrl($session.user.profileImage)}
+                                                alt="Profile"
+                                                class="w-full h-full object-cover"
+                                                on:error={(e) => {
+                                                    // Fallback to initials if image fails to load
+                                                    e.currentTarget.style.display = 'none';
+                                                    e.currentTarget.nextElementSibling.style.display = 'flex';
+                                                }}
+                                            />
+                                            <div class="hidden w-full h-full text-white text-sm font-medium items-center justify-center">
+                                                {$session.user?.firstName?.[0]}{$session.user?.lastName?.[0]}
+                                            </div>
+                                        {:else}
+                                            <div class="w-full h-full text-white text-sm font-medium flex items-center justify-center">
+                                                {$session.user?.firstName?.[0]}{$session.user?.lastName?.[0]}
+                                            </div>
+                                        {/if}
                                     </div>
-                                    <span class="text-sm font-medium text-gray-700">
-                                        {$session.user?.firstName}
-                                    </span>
+                                    <div class="flex flex-col items-start">
+                                        <span class="text-sm font-medium text-gray-700">
+                                            {$session.user?.firstName} {$session.user?.lastName}
+                                        </span>
+                                        <span class="text-xs text-gray-500">
+                                            {$session.user?.role}
+                                        </span>
+                                    </div>
                                     <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                     </svg>
@@ -234,35 +265,74 @@
 
                                 {#if showProfileMenu}
                                     <div 
-                                        class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50"
+                                        class="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg py-1 z-50"
                                         transition:slide
                                     >
-                                        <div class="px-4 py-2 border-b border-gray-100">
+                                        <div class="px-4 py-3 border-b border-gray-100">
                                             <div class="text-sm font-medium text-gray-900">
                                                 {$session.user?.firstName} {$session.user?.lastName}
                                             </div>
                                             <div class="text-xs text-gray-500">
                                                 {$session.user?.email}
                                             </div>
+                                            {#if $session.user?.wallet}
+                                                <div class="mt-2 pt-2 border-t border-gray-100">
+                                                    <div class="text-xs font-medium text-gray-500">Total Balance</div>
+                                                    <div class="flex justify-between items-center mt-1">
+                                                        <div class="text-sm font-medium">
+                                                            {$session.user.wallet.totalBalance.btc.toFixed(8)} BTC
+                                                        </div>
+                                                        <div class="text-sm text-gray-500">
+                                                            ≈ ${$session.user.wallet.totalBalance.usd.toFixed(2)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            {/if}
                                         </div>
-                                        <a 
-                                            href="/profile" 
-                                            class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                        >
-                                            Profile Settings
-                                        </a>
-                                        <a 
-                                            href="/security" 
-                                            class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                        >
-                                            Security
-                                        </a>
-                                        <button 
-                                            on:click={handleLogout}
-                                            class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                                        >
-                                            Sign out
-                                        </button>
+                                        <div class="py-1">
+                                            <a 
+                                                href="/profile" 
+                                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                            >
+                                                <svg class="w-4 h-4 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                </svg>
+                                                Profile Settings
+                                            </a>
+                                            <a 
+                                                href="/wallets" 
+                                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                            >
+                                                <svg class="w-4 h-4 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                          d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                                </svg>
+                                                Wallet
+                                            </a>
+                                            <a 
+                                                href="/security" 
+                                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                            >
+                                                <svg class="w-4 h-4 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                </svg>
+                                                Security
+                                            </a>
+                                        </div>
+                                        <div class="py-1 border-t border-gray-100">
+                                            <button 
+                                                on:click={handleLogout}
+                                                class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                            >
+                                                <svg class="w-4 h-4 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                                </svg>
+                                                Sign out
+                                            </button>
+                                        </div>
                                     </div>
                                 {/if}
                             </div>
