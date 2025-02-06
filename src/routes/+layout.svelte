@@ -18,7 +18,14 @@
     $: ({ user, isAuthenticated } = $page.data);
 
     // Sidebar navigation items
-    const navItems = [
+    $: navItems = $session.user?.role === 'admin' ? [
+        { icon: "chart-bar", label: "Statistics", href: "/admin" },
+        { icon: "grid", label: "deposits", href: "/admin/deposits" },
+        { icon: "users", label: "Users", href: "/admin/users" },
+        
+        { icon: "cog", label: "Settings", href: "/admin/settings" },
+        
+    ] : [
         { icon: "grid", label: "Home", href: "/" },
         { icon: "repeat", label: "Exchange", href: "/exchange" },
         { icon: "trending-up", label: "Prices", href: "/prices" },
@@ -57,6 +64,10 @@
 
     // Simpler route check
     $: isAccountPage = $page.url.pathname.includes('/account');
+
+    // Check if user is admin
+    $: isAdmin = $session.user?.role === 'admin';
+    $: isAdminRoute = $page.url.pathname.startsWith('/admin');
 </script>
 
 <svelte:head>
@@ -132,6 +143,17 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                                         {:else if item.icon === 'file-text'}
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        {:else if item.icon === 'users'}
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                        {:else if item.icon === 'chart-bar'}
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                        {:else if item.icon === 'cog'}
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         {/if}
                                     </svg>
                                     
@@ -352,13 +374,14 @@
         </nav>
 
         <!-- Main Content -->
-        <main class="transition-all duration-300 relative w-full"
-              class:pl-72={$isSidebarOpen}
-              class:pl-24={!$isSidebarOpen}>
-            <div class="px-8 pt-20 pb-8 min-h-screen w-full max-w-[100vw]">
+        <main class="main-content {$isSidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}"
+              style="margin-left: var(--sidebar-width)">
+            <div class="content-container">
                 <slot />
+                {#if !(isAdmin && isAdminRoute)}
+                    <Footer />
+                {/if}
             </div>
-            <Footer />
         </main>
     </div>
 {:else}
@@ -366,6 +389,59 @@
 {/if}
 
 <style lang="postcss">
-    /* Your styles here */
+    :global(body) {
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+    }
+
+    .app-layout {
+        display: flex;
+        min-height: 100vh;
+    }
+
+    /* Sidebar styles */
+    aside {
+        position: fixed;
+        height: 100vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch; /* For smooth scrolling on iOS */
+    }
+
+    /* Main content styles */
+    main {
+        flex: 1;
+        margin-top: 64px; /* Height of the top nav */
+        width: 100%;
+        min-height: calc(100vh - 64px);
+        overflow-x: hidden;
+    }
+
+    /* Navigation bar styles */
+    nav {
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 64px;
+        width: calc(100% - var(--sidebar-width));
+        z-index: 40;
+    }
+
+    /* Content container */
+    .content-container {
+        padding: 24px;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    /* Utility classes for sidebar widths */
+    .sidebar-expanded {
+        --sidebar-width: 18rem; /* 72px */
+    }
+
+    .sidebar-collapsed {
+        --sidebar-width: 6rem; /* 24px */
+    }
 </style>
 

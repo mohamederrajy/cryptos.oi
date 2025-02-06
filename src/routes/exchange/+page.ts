@@ -1,0 +1,1 @@
+// Delete this file or remove its contents since we don't need to force authentication 

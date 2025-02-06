@@ -1,8 +1,68 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
+    import { notifications } from '$lib/stores/notifications';
+    import { PUBLIC_API_URL } from '$env/static/public';
+    import { session } from '$lib/stores/session';
+
     let isLoading = true;
     let updateInterval: any;
     let isDropdownOpen = false;
+
+    // Add these new variables for order form
+    let limitPrice: number | null = null;
+    let amount: number | null = null;
+    let total: number | null = null;
+    let isPlacingOrder = false;
+    let orderType: 'buy' | 'sell' = 'buy';
+    let orderMode: 'limit' | 'market' = 'limit';
+
+    // Calculate total when price or amount changes
+    $: if (limitPrice && amount) {
+        total = limitPrice * amount;
+    }
+
+    // Add this function to handle order placement
+    async function handlePlaceOrder() {
+        if (!limitPrice || !amount || !total) {
+            notifications.error('Please fill in all fields');
+            return;
+        }
+
+        try {
+            isPlacingOrder = true;
+            const response = await fetch(`${PUBLIC_API_URL}/api/orders/place`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    pair: currentPair.symbol,
+                    type: orderType,
+                    mode: orderMode,
+                    price: limitPrice,
+                    amount: amount,
+                    total: total
+                })
+            });
+
+            if (response.ok) {
+                notifications.success('Order placed successfully');
+                // Reset form
+                limitPrice = null;
+                amount = null;
+                total = null;
+            } else {
+                const error = await response.json();
+                notifications.error(error.message || 'Failed to place order');
+            }
+        } catch (error) {
+            console.error('Order error:', error);
+            notifications.error('Failed to place order');
+        } finally {
+            isPlacingOrder = false;
+        }
+    }
 
     // Available pairs
     const tradingPairs = [
@@ -318,8 +378,10 @@
                         <div class="relative">
                             <input 
                                 type="number" 
+                                bind:value={limitPrice}
                                 class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 placeholder="0"
+                                disabled={!$session.isAuthenticated}
                             />
                             <span class="absolute right-4 top-2.5 text-gray-500">USDT</span>
                         </div>
@@ -331,8 +393,10 @@
                         <div class="relative">
                             <input 
                                 type="number" 
+                                bind:value={amount}
                                 class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 placeholder="0"
+                                disabled={!$session.isAuthenticated}
                             />
                             <span class="absolute right-4 top-2.5 text-gray-500">BTC</span>
                         </div>
@@ -344,18 +408,40 @@
                         <div class="relative">
                             <input 
                                 type="number" 
+                                bind:value={total}
                                 class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 placeholder="0"
+                                disabled={!$session.isAuthenticated}
                             />
                             <span class="absolute right-4 top-2.5 text-gray-500">USDT</span>
                         </div>
                     </div>
 
-                    <!-- Login/Signup Button -->
+                    <!-- Login/Place Order Button -->
                     <div class="flex flex-col justify-end">
-                        <button class="w-full py-2 bg-white border border-emerald-500 text-emerald-500 rounded-lg font-medium hover:bg-emerald-50">
-                            Log In or Sign Up
-                        </button>
+                        {#if $session.isAuthenticated}
+                            <button 
+                                class="w-full py-2 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                                on:click={handlePlaceOrder}
+                                disabled={isPlacingOrder}
+                            >
+                                {#if isPlacingOrder}
+                                    <div class="flex items-center justify-center">
+                                        <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                        Processing...
+                                    </div>
+                                {:else}
+                                    Place Order
+                                {/if}
+                            </button>
+                        {:else}
+                            <button 
+                                class="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                                on:click={() => window.location.href = '/account/login'}
+                            >
+                                Log In to Trade
+                            </button>
+                        {/if}
                     </div>
                 </div>
 
