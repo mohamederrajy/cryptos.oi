@@ -38,30 +38,26 @@ function createSessionStore() {
             if (token) {
                 try {
                     const profile = await fetchUserProfile();
-                    console.log('Initialized user profile:', profile);
                     const sessionData = {
                         isAuthenticated: true,
                         token,
                         user: profile
                     };
-                    
-                    localStorage.setItem('token', token);
-                    localStorage.setItem('user', JSON.stringify(profile));
-                    
                     set(sessionData);
                 } catch (error) {
                     console.error('Failed to fetch profile:', error);
-                    const savedUser = localStorage.getItem('user');
-                    if (savedUser) {
-                        console.log('Using saved user data:', JSON.parse(savedUser));
-                        set({
-                            isAuthenticated: true,
-                            token,
-                            user: JSON.parse(savedUser)
-                        });
-                    }
                 }
             }
+        },
+        checkSession: () => {
+            if (!browser) return false;
+            const token = localStorage.getItem('token');
+            return !!token;
+        },
+        getUser: () => {
+            if (!browser) return null;
+            const user = localStorage.getItem('user');
+            return user ? JSON.parse(user) : null;
         },
         login: async (token: string, basicUser: any) => {
             if (!browser) return;

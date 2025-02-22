@@ -16,6 +16,7 @@
     async function handleAvatarUpload() {
         if (!avatarFile?.[0]) return;
         
+        
         try {
             isUpdating = true;
             const updatedUser = await updateUserProfile({

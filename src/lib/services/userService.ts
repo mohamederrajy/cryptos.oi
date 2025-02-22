@@ -1,19 +1,16 @@
 import { PUBLIC_API_URL } from '$env/static/public';
-import { session } from '$lib/stores/session';
-import type { UserProfile } from '$lib/types/user';
+import { browser } from '$app/environment';
 
-export async function fetchUserProfile(): Promise<UserProfile> {
-    const token = localStorage.getItem('token');
+export async function fetchUserProfile() {
+    if (!browser) return null;
     
-    if (!token) {
-        throw new Error('No authentication token found');
-    }
+    const token = localStorage.getItem('token');
+    if (!token) return null;
 
     try {
         const response = await fetch(`${PUBLIC_API_URL}/api/auth/me`, {
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+                'Authorization': `Bearer ${token}`
             }
         });
 
@@ -21,18 +18,8 @@ export async function fetchUserProfile(): Promise<UserProfile> {
             throw new Error('Failed to fetch user profile');
         }
 
-        const profile = await response.json();
-        console.log('API Response - User Profile:', {
-            id: profile.id,
-            email: profile.email,
-            firstName: profile.firstName,
-            lastName: profile.lastName,
-            role: profile.role,
-            wallet: profile.wallet,
-            createdAt: profile.createdAt
-        });
-        
-        return profile;
+        const data = await response.json();
+        return data;
     } catch (error) {
         console.error('Error fetching user profile:', error);
         throw error;

@@ -131,120 +131,17 @@
                 </button>
             </div>
 
-            <!-- Right Content: Live Trading Interface -->
+            <!-- Right Content -->
             <div class="w-full lg:w-1/2" in:fly={{ x: 50, duration: 1000 }}>
                 <div class="relative">
-                    <!-- Main Trading Card -->
-                    <div class="bg-white rounded-2xl shadow-xl p-6 transform hover:scale-[1.02] transition-all duration-300">
-                        <!-- Trading Pairs -->
-                        <div class="flex gap-4 mb-8">
-                            {#each featuredCryptos as crypto, index}
-                                <button 
-                                    class="relative group"
-                                    class:active={activeIndex === index}
-                                    on:click={() => activeIndex = index}
-                                >
-                                    <div class="flex items-center gap-2 p-3 rounded-xl 
-                                                {activeIndex === index ? 'bg-gray-50' : 'hover:bg-gray-50'} 
-                                                transition-all duration-200">
-                                        <div class="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center
-                                                   bg-gradient-to-r {crypto.color}">
-                                            <img 
-                                                src={crypto.image} 
-                                                alt={crypto.name} 
-                                                class="w-full h-full object-contain"
-                                                on:error={(e) => handleImageError(e, crypto)}
-                                            />
-                                        </div>
-                                        <div>
-                                            <div class="font-medium">{crypto.symbol}</div>
-                                            <div class={`text-sm ${crypto.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                                {crypto.change >= 0 ? '+' : ''}{crypto.change}%
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {#if activeIndex === index}
-                                        <div class="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-full"></div>
-                                    {/if}
-                                </button>
-                            {/each}
-                        </div>
-
-                        <!-- Price Chart -->
-                        <div class="bg-gray-50 rounded-xl p-6 mb-6">
-                            <div class="flex justify-between items-start mb-6">
-                                <div>
-                                    <h3 class="text-2xl font-bold">
-                                        ${prices[activeIndex].toLocaleString(undefined, {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2
-                                        })}
-                                    </h3>
-                                    <div class="text-sm text-gray-500">
-                                        Volume: {featuredCryptos[activeIndex].volume}
-                                    </div>
-                                </div>
-                                <div class={`px-3 py-1 rounded-full text-sm font-medium
-                                            ${featuredCryptos[activeIndex].change >= 0 
-                                                ? 'bg-green-50 text-green-600' 
-                                                : 'bg-red-50 text-red-600'}`}>
-                                    {featuredCryptos[activeIndex].change >= 0 ? '↑' : '↓'}
-                                    {Math.abs(featuredCryptos[activeIndex].change)}%
-                                </div>
-                            </div>
-
-                            <!-- Live Chart -->
-                            <div class="h-40 relative">
-                                <svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-                                    <path 
-                                        d="M0 50 Q 25 {45 + Math.random() * 10}, 50 {55 + Math.random() * 10} T 100 50"
-                                        class="stroke-2 fill-none transition-all duration-300"
-                                        stroke={featuredCryptos[activeIndex].change >= 0 ? '#22C55E' : '#EF4444'}
-                                    />
-                                </svg>
-                            </div>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="grid grid-cols-2 gap-4">
-                            <button class="p-4 rounded-xl bg-green-50 hover:bg-green-100 transition-colors duration-200">
-                                <span class="text-green-600 font-medium">Buy {featuredCryptos[activeIndex].symbol}</span>
-                            </button>
-                            <button class="p-4 rounded-xl bg-red-50 hover:bg-red-100 transition-colors duration-200">
-                                <span class="text-red-600 font-medium">Sell {featuredCryptos[activeIndex].symbol}</span>
-                            </button>
-                        </div>
+                    <!-- Main Image -->
+                    <div class="relative z-10">
+                        <img 
+                            src="/images/homw maim.png" 
+                            alt="Trading Platform"
+                            class="w-full h-auto"
+                        />
                     </div>
-
-                    <!-- Floating Cards -->
-                    {#each featuredCryptos.filter((_, i) => i !== activeIndex) as crypto, i}
-                        <div 
-                            class="absolute bg-white p-4 rounded-xl shadow-lg animate-float"
-                            style="
-                                {i === 0 ? 'right: -2rem; top: 20%;' : 'left: -2rem; bottom: 20%;'}
-                                animation-delay: {i * 2}s;
-                            "
-                            in:fly={{ y: 50, duration: 1000, delay: i * 200 }}
-                        >
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center
-                                           bg-gradient-to-r {crypto.color}">
-                                    <img 
-                                        src={crypto.image} 
-                                        alt={crypto.name} 
-                                        class="w-full h-full object-contain"
-                                        on:error={(e) => handleImageError(e, crypto)}
-                                    />
-                                </div>
-                                <div>
-                                    <div class="font-medium">{crypto.symbol}</div>
-                                    <div class={`text-sm ${crypto.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                        {crypto.change >= 0 ? '+' : ''}{crypto.change}%
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    {/each}
                 </div>
             </div>
         </div>
@@ -338,5 +235,20 @@
     /* Smooth transitions */
     .transition-transform {
         transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Add these new animations */
+    @keyframes float-slow {
+        0%, 100% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-10px) rotate(1deg); }
+    }
+
+    .animate-float-slow {
+        animation: float-slow 6s ease-in-out infinite;
+    }
+
+    /* Add delay variant */
+    .delay-200 {
+        animation-delay: 200ms;
     }
 </style>

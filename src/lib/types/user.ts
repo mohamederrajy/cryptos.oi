@@ -1,26 +1,22 @@
 // Create types for user profile
+export interface WalletBalance {
+    USDT: number;
+}
+
 export interface Wallet {
-    totalBalance: {
-        btc: number;
-        usd: number;
-    };
-    assetBalance: {
-        btc: number;
-        usd: number;
-    };
-    exchangeBalance: {
-        btc: number;
-        usd: number;
-    };
+    totalBalance: WalletBalance;
+    assetBalance: WalletBalance;
+    exchangeBalance: WalletBalance;
 }
 
 export interface UserProfile {
     id: string;
+    email: string;
     firstName: string;
     lastName: string;
-    email: string;
     role: string;
+    isAdmin: boolean;
     wallet: Wallet;
-    createdAt: string;
+    createdAt?: string;
     profileImage?: string;
 } 

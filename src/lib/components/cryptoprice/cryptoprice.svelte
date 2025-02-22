@@ -32,17 +32,17 @@
         const max = Math.max(...prices);
         const range = max - min || 1;
         
-        const height = 80; // Increased height for better visibility
-        const width = 180; // Increased width for smoother curve
+        const height = 60; // Reduced height for cleaner look
+        const width = 160; // Adjusted width
         
-        // Create bezier curve points
+        // Create smoother curve points
         const points = prices.map((price, i) => {
             const x = (i / (prices.length - 1)) * width;
-            const y = height - ((price - min) / range) * height * 0.75; // More padding
+            const y = height - ((price - min) / range) * height * 0.8; // 80% height utilization
             return { x, y };
         });
 
-        // Generate smooth curve using cubic bezier
+        // Generate smooth curve
         let pathD = `M ${points[0].x},${points[0].y}`;
         for (let i = 0; i < points.length - 1; i++) {
             const current = points[i];
@@ -360,16 +360,16 @@
                             </div>
 
                             <!-- Sparkline Chart -->
-                            <div class="w-full h-[80px] mt-4 relative group">
+                            <div class="w-full h-[60px] mt-4 relative group">
                                 {#if crypto.sparkline_in_7d?.price}
                                     <svg 
                                         width="100%" 
                                         height="100%" 
-                                        viewBox="0 0 180 80" 
+                                        viewBox="0 0 160 60" 
                                         preserveAspectRatio="none"
-                                        class="overflow-visible transition-transform duration-300 ease-out"
+                                        class="overflow-visible"
                                     >
-                                        <!-- Enhanced gradients -->
+                                        <!-- Simplified gradient -->
                                         <defs>
                                             <linearGradient
                                                 id="gradient-{crypto.id}"
@@ -381,12 +381,7 @@
                                                 <stop
                                                     offset="0%"
                                                     stop-color={crypto.price_change_percentage_24h >= 0 ? '#22C55E' : '#EF4444'}
-                                                    stop-opacity="0.3"
-                                                />
-                                                <stop
-                                                    offset="50%"
-                                                    stop-color={crypto.price_change_percentage_24h >= 0 ? '#22C55E' : '#EF4444'}
-                                                    stop-opacity="0.1"
+                                                    stop-opacity="0.2"
                                                 />
                                                 <stop
                                                     offset="100%"
@@ -394,64 +389,34 @@
                                                     stop-opacity="0"
                                                 />
                                             </linearGradient>
-                                            
-                                            <!-- Glow effect -->
-                                            <filter id="glow-{crypto.id}">
-                                                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-                                                <feMerge>
-                                                    <feMergeNode in="coloredBlur"/>
-                                                    <feMergeNode in="SourceGraphic"/>
-                                                </feMerge>
-                                            </filter>
                                         </defs>
 
-                                        <!-- Gradient area with animation -->
+                                        <!-- Area fill -->
                                         <path
                                             d={createSparkline(crypto.sparkline_in_7d.price, crypto.price_change_percentage_24h >= 0).gradient}
                                             fill="url(#gradient-{crypto.id})"
                                             class="transition-opacity duration-300"
                                         />
 
-                                        <!-- Main line with glow effect -->
+                                        <!-- Line -->
                                         <path
                                             d={createSparkline(crypto.sparkline_in_7d.price, crypto.price_change_percentage_24h >= 0).line}
                                             fill="none"
                                             stroke={crypto.price_change_percentage_24h >= 0 ? '#22C55E' : '#EF4444'}
                                             stroke-width="1.5"
                                             stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            filter="url(#glow-{crypto.id})"
-                                            class="transition-all duration-300 group-hover:stroke-width-2"
+                                            class="transition-all duration-300"
                                         />
 
-                                        <!-- Interactive elements -->
-                                        {#if crypto.sparkline_in_7d.price.length > 0}
-                                            <!-- Start point -->
+                                        <!-- End point -->
                                             <circle
-                                                cx="0"
-                                                cy={createSparkline([crypto.sparkline_in_7d.price[0]], crypto.price_change_percentage_24h >= 0).line.split(',')[1]}
-                                                r="3"
-                                                fill={crypto.price_change_percentage_24h >= 0 ? '#22C55E' : '#EF4444'}
-                                                class="transition-all duration-300 opacity-0 group-hover:opacity-100"
-                                            />
-                                            
-                                            <!-- End point with pulse effect -->
-                                            <circle
-                                                cx="180"
+                                            cx="160"
                                                 cy={createSparkline([crypto.sparkline_in_7d.price[crypto.sparkline_in_7d.price.length - 1]], crypto.price_change_percentage_24h >= 0).line.split(',')[1]}
-                                                r="3"
+                                            r="2"
                                                 fill={crypto.price_change_percentage_24h >= 0 ? '#22C55E' : '#EF4444'}
-                                                class="transition-all duration-300 group-hover:animate-ping"
+                                            class="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                                             />
-                                        {/if}
                                     </svg>
-
-                                    <!-- Hover tooltip -->
-                                    <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                        <div class="absolute top-0 left-0 transform -translate-y-full bg-gray-900 text-white px-2 py-1 rounded text-xs">
-                                            7d Change: {crypto.price_change_percentage_24h.toFixed(2)}%
-                                        </div>
-                                    </div>
                                 {/if}
                             </div>
                         </div>

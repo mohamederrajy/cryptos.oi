@@ -6,13 +6,13 @@
     import { mockUsers } from '$lib/data/mockUsers';
 
     interface Wallet {
-        totalBalance: { btc: number; usd: number; };
-        assetBalance: { btc: number; usd: number; };
-        exchangeBalance: { btc: number; usd: number; };
+        totalBalance: { USDT: number; };
+        assetBalance: { USDT: number; };
+        exchangeBalance: { USDT: number; };
     }
 
     interface User {
-        _id: string;
+        id: string;
         firstName?: string;
         lastName?: string;
         email: string;
@@ -40,8 +40,7 @@
         lastName: '',
         wallet: {
             totalBalance: {
-                btc: 0,
-                usd: 0
+                USDT: 0
             }
         }
     };
@@ -136,7 +135,7 @@
 
             if (response.ok) {
                 notifications.success('User deleted successfully');
-                users = users.filter(user => user._id !== userId);
+                users = users.filter(user => user.id !== userId);
                 showDeleteModal = false;
                 userToDelete = null;
             } else {
@@ -158,8 +157,7 @@
             lastName: user.lastName || '',
             wallet: {
                 totalBalance: {
-                    btc: user.wallet.totalBalance.btc,
-                    usd: user.wallet.totalBalance.usd
+                    USDT: user.wallet.totalBalance.USDT
                 }
             }
         };
@@ -174,11 +172,7 @@
     async function updateUser() {
         if (!editingUser) return;
 
-        // Show loading state
-        isLoading = true;
-
         try {
-            // Prepare the request body
             const updateData = {
                 email: editForm.email,
                 role: editForm.role,
@@ -186,15 +180,12 @@
                 lastName: editForm.lastName,
                 wallet: {
                     totalBalance: {
-                        btc: Number(editForm.wallet.totalBalance.btc),
-                        usd: Number(editForm.wallet.totalBalance.usd)
+                        USDT: Number(editForm.wallet.totalBalance.USDT)
                     }
                 }
             };
 
-            console.log('Sending update data:', updateData);
-
-            const response = await fetch(`${PUBLIC_API_URL}/api/admin/users/${editingUser._id}`, {
+            const response = await fetch(`${PUBLIC_API_URL}/api/admin/users/${editingUser.id}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -203,22 +194,17 @@
                 body: JSON.stringify(updateData)
             });
 
-            console.log('Update response status:', response.status);
-            
             if (response.ok) {
                 const responseData = await response.json();
-                console.log('Update response data:', responseData);
-                
                 const { message, user: updatedUser } = responseData;
                 users = users.map(u => 
-                    u._id === editingUser._id ? { ...u, ...updatedUser } : u
+                    u.id === editingUser?.id ? { ...u, ...updatedUser } : u
                 );
                 notifications.success(message || 'User updated successfully');
                 showEditModal = false;
                 editingUser = null;
             } else {
                 const error = await response.json();
-                console.error('Update error response:', error);
                 notifications.error(error.message || 'Failed to update user');
             }
         } catch (error) {
@@ -282,44 +268,77 @@
         </div>
 
         <!-- Users Table -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-semibold text-gray-900">Users Management</h3>
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2 text-sm text-gray-500">
+                        <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                        <span>Active</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-gray-500">
+                        <div class="w-3 h-3 rounded-full bg-gray-300"></div>
+                        <span>Inactive</span>
+                    </div>
+                </div>
+            </div>
+
             {#if isLoading}
                 <div class="flex items-center justify-center py-12">
-                    <div class="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <div class="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                 </div>
             {:else}
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            <tr class="border-b border-gray-100">
+                                <th class="px-6 py-3 text-left">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">User</span>
+                                        <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                                        </svg>
+                                    </div>
+                                </th>
+                                <th class="px-6 py-3 text-left">
+                                    <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Email</span>
+                                </th>
+                                <th class="px-6 py-3 text-left">
+                                    <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Role</span>
+                                </th>
+                                <th class="px-6 py-3 text-left">
+                                    <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Status</span>
+                                </th>
+                                <th class="px-6 py-3 text-left">
+                                    <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</span>
+                                </th>
+                                <th class="px-6 py-3 text-right">
+                                    <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</span>
+                                </th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            {#each filteredUsers as user (user._id)}
-                                <tr class="hover:bg-gray-50">
+                        <tbody class="divide-y divide-gray-50">
+                            {#each filteredUsers as user, index (user.id || index)}
+                                <tr class="hover:bg-gray-50/50 transition-colors">
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="flex items-center">
+                                        <div class="flex items-center gap-3">
                                             {#if user.profileImage}
                                                 <img 
                                                     src={`${PUBLIC_API_URL}/${user.profileImage}`} 
                                                     alt={getUserDisplayName(user)}
-                                                    class="w-8 h-8 rounded-full object-cover"
+                                                    class="w-10 h-10 rounded-full object-cover"
                                                 />
                                             {:else}
-                                                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
+                                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 
+                                                            flex items-center justify-center text-white font-medium">
                                                     {getUserInitials(user)}
                                                 </div>
                                             {/if}
-                                            <div class="ml-3">
+                                            <div>
                                                 <div class="text-sm font-medium text-gray-900">
                                                     {getUserDisplayName(user)}
                                                 </div>
+                                                <div class="text-sm text-gray-500">{user.email}</div>
                                             </div>
                                         </div>
                                     </td>
@@ -327,53 +346,61 @@
                                         <div class="text-sm text-gray-500">{user.email}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                   {user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}">
+                                        <span class="px-2 py-1 text-xs font-medium rounded-full 
+                                            {user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}">
                                             {user.role}
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                            {user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                                            {user.status}
-                                        </span>
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 rounded-full 
+                                                {user.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}">
+                                            </div>
+                                            <span class="text-sm text-gray-900 capitalize">{user.status}</span>
+                                        </div>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {new Date(user.createdAt).toLocaleDateString()}
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900">
+                                            {user.wallet.totalBalance.USDT.toLocaleString()} USDT
+                                        </div>
+                                        <div class="flex items-center gap-1 text-xs text-gray-500">
+                                            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                                                <path d="M11 7h2v7h-2zm0 8h2v2h-2z"/>
+                                            </svg>
+                                            <span>Total Balance</span>
+                                        </div>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <div class="flex gap-3">
+                                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                                        <div class="flex items-center justify-end gap-2">
                                             <button 
-                                                class="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                                class="p-1 hover:bg-gray-100 rounded-full transition-colors"
                                                 on:click={() => viewUserDetails(user)}
                                             >
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <svg class="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                                           d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                                           d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                                 </svg>
-                                                <span>View</span>
                                             </button>
                                             <button 
-                                                class="text-purple-600 hover:text-purple-800 flex items-center gap-1"
+                                                class="p-1 hover:bg-gray-100 rounded-full transition-colors"
                                                 on:click={() => openEditModal(user)}
                                             >
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <svg class="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                                           d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                 </svg>
-                                                <span>Edit</span>
                                             </button>
                                             <button 
-                                                class="text-red-600 hover:text-red-800 flex items-center gap-1"
+                                                class="p-1 hover:bg-red-50 rounded-full transition-colors"
                                                 on:click={() => openDeleteModal(user)}
                                             >
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                                           d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>
-                                                <span>Delete</span>
                                             </button>
                                         </div>
                                     </td>
@@ -381,6 +408,30 @@
                             {/each}
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="flex items-center justify-between mt-6">
+                    <div class="text-sm text-gray-500">
+                        Showing {filteredUsers.length} of {users.length} users
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button class="px-3 py-1 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm text-gray-600 disabled:opacity-50">
+                            Previous
+                        </button>
+                        <button class="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                            1
+                        </button>
+                        <button class="px-3 py-1 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm text-gray-600">
+                            2
+                        </button>
+                        <button class="px-3 py-1 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm text-gray-600">
+                            3
+                        </button>
+                        <button class="px-3 py-1 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm text-gray-600">
+                            Next
+                        </button>
+                    </div>
                 </div>
             {/if}
         </div>
@@ -419,7 +470,7 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div class="p-4 bg-gray-50 rounded-lg">
                                 <div class="text-sm font-medium text-gray-500">User ID</div>
-                                <div class="mt-1 text-sm">{selectedUser._id}</div>
+                                <div class="mt-1 text-sm">{selectedUser.id}</div>
                             </div>
                             <div class="p-4 bg-gray-50 rounded-lg">
                                 <div class="text-sm font-medium text-gray-500">Role</div>
@@ -440,27 +491,30 @@
                                 <!-- Total Balance -->
                                 <div class="p-4 bg-gray-50 rounded-lg">
                                     <div class="text-sm font-medium text-gray-500">Total Balance</div>
-                                    <div class="mt-2 space-y-1">
-                                        <div class="text-sm">{selectedUser.wallet.totalBalance.btc.toFixed(8)} BTC</div>
-                                        <div class="text-sm">${selectedUser.wallet.totalBalance.usd.toFixed(2)} USD</div>
+                                    <div class="mt-2">
+                                        <div class="text-lg font-semibold text-gray-900">
+                                            {selectedUser.wallet.totalBalance.USDT.toLocaleString()} USDT
+                                        </div>
                                     </div>
                                 </div>
 
                                 <!-- Asset Balance -->
                                 <div class="p-4 bg-gray-50 rounded-lg">
                                     <div class="text-sm font-medium text-gray-500">Asset Balance</div>
-                                    <div class="mt-2 space-y-1">
-                                        <div class="text-sm">{selectedUser.wallet.assetBalance.btc.toFixed(8)} BTC</div>
-                                        <div class="text-sm">${selectedUser.wallet.assetBalance.usd.toFixed(2)} USD</div>
+                                    <div class="mt-2">
+                                        <div class="text-lg font-semibold text-gray-900">
+                                            {selectedUser.wallet.assetBalance.USDT.toLocaleString()} USDT
+                                        </div>
                                     </div>
                                 </div>
 
                                 <!-- Exchange Balance -->
                                 <div class="p-4 bg-gray-50 rounded-lg">
                                     <div class="text-sm font-medium text-gray-500">Exchange Balance</div>
-                                    <div class="mt-2 space-y-1">
-                                        <div class="text-sm">{selectedUser.wallet.exchangeBalance.btc.toFixed(8)} BTC</div>
-                                        <div class="text-sm">${selectedUser.wallet.exchangeBalance.usd.toFixed(2)} USD</div>
+                                    <div class="mt-2">
+                                        <div class="text-lg font-semibold text-gray-900">
+                                            {selectedUser.wallet.exchangeBalance.USDT.toLocaleString()} USDT
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -530,22 +584,19 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">BTC Balance</label>
-                        <input 
-                            type="number" 
-                            bind:value={editForm.wallet.totalBalance.btc}
-                            step="0.00000001"
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">USD Balance</label>
-                        <input 
-                            type="number" 
-                            bind:value={editForm.wallet.totalBalance.usd}
-                            step="0.01"
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        />
+                        <label class="block text-sm font-medium text-gray-700">USDT Balance</label>
+                        <div class="mt-1 relative rounded-md shadow-sm">
+                            <input 
+                                type="number" 
+                                bind:value={editForm.wallet.totalBalance.USDT}
+                                step="0.01"
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
+                                       focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            />
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span class="text-gray-500 sm:text-sm">USDT</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="mt-6 flex justify-end space-x-3">
                         <button 
@@ -602,7 +653,7 @@
                         </button>
                         <button 
                             class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                            on:click={() => deleteUser(userToDelete._id)}
+                            on:click={() => deleteUser(userToDelete.id)}
                         >
                             Delete User
                         </button>
