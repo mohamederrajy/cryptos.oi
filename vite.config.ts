@@ -16,7 +16,10 @@ export default defineConfig({
 		}
 	},
 	resolve: {
-		dedupe: ['lightweight-charts']
+		dedupe: ['lightweight-charts'],
+		alias: {
+			'preline/preline': 'preline'
+		}
 	},
 	build: {
 		rollupOptions: {

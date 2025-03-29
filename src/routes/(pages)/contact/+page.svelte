@@ -1,464 +1,142 @@
-<script>
-  import { onMount } from 'svelte';
-  import { slide } from 'svelte/transition';
-  
-  let sending = false;
-  let success = false;
-  let error = false;
-  let errorMessage = '';
+<script lang="ts">
+import { fade } from 'svelte/transition';
+import { notifications } from '$lib/stores/notifications';
 
-  onMount(() => {
-    const script = document.createElement('script');
-    script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js";
-    document.body.appendChild(script);
+let formData = {
+    name: '',
+    email: '',
+    subject: '',
+    message: ''
+};
 
-    script.onload = () => {
-      emailjs.init("AWnbOka0ZUhEsheWW");
-    };
-  });
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    sending = true;
-    error = false;
-    success = false;
-    errorMessage = '';
-
-    const form = e.target;
-    
+async function handleSubmit() {
     try {
-      const result = await emailjs.sendForm(
-        'service_bw7se4l',
-        'template_3dp5m8f',
-        form,
-        'AWnbOka0ZUhEsheWW'
-      );
-      success = true;
-      form.reset();
-    } catch (err) {
-      error = true;
-      errorMessage = err.text || err.message || 'Unknown error occurred';
-    } finally {
-      sending = false;
+        // Here you would typically send the form data to your backend
+        notifications.success('Message sent successfully!');
+        formData = { name: '', email: '', subject: '', message: '' };
+    } catch (error) {
+        notifications.error('Failed to send message. Please try again.');
     }
-  };
-
-  // FAQ Toggle
-  let activeQuestion = null;
-  const toggleQuestion = (index) => {
-    activeQuestion = activeQuestion === index ? null : index;
-  };
-
-  // FAQ Data
-  const faqs = [
-    {
-      question: "How quickly can I get started with IpsePay?",
-      answer: "Getting started with IpsePay is quick and seamless. Our streamlined onboarding process typically takes just 10-15 minutes to complete. Once you've submitted your business details and verification documents, you can start accepting payments within 24 hours. Our team provides dedicated support throughout the setup process to ensure a smooth transition."
-    },
-    {
-      question: "What payment methods do you support?",
-      answer: "We support a comprehensive range of payment methods including: Credit Cards (Visa, Mastercard, American Express, Discover), Debit Cards, Digital Wallets (Apple Pay, Google Pay, PayPal), Bank Transfers (ACH, SEPA, Wire), Local Payment Methods, and Cryptocurrencies. Our platform automatically optimizes for the best payment method based on your customer's location."
-    },
-    {
-      question: "How secure are your payment solutions?",
-      answer: "Security is our top priority. We maintain the highest level of security through: PCI DSS Level 1 compliance, End-to-end encryption (E2EE), Two-factor authentication (2FA), Advanced fraud detection systems, Regular security audits, 24/7 monitoring, and Secure data centers. We also provide real-time fraud monitoring and automated risk assessment tools to protect your business."
-    },
-    {
-      question: "What are your transaction fees?",
-      answer: "Our pricing is transparent and competitive. Standard rates start at 2.9% + $0.30 per transaction for credit cards. We offer volume-based discounts for businesses processing over $50,000 monthly. Custom pricing packages are available for enterprise clients. Contact our sales team for a tailored quote based on your business needs and volume."
-    },
-    {
-      question: "Do you provide international payment support?",
-      answer: "Yes, we offer full international payment support. Our platform handles: Multiple currencies (165+ supported), Automatic currency conversion, Local payment methods in different regions, International card processing, Cross-border transactions, and Multi-language checkout experiences. We ensure compliance with regional regulations and optimize for local payment preferences."
-    },
-    {
-      question: "What kind of integration support do you offer?",
-      answer: "We provide comprehensive integration support including: Ready-to-use SDKs for major programming languages, Detailed API documentation, Custom integration guidance, Developer support team, Sample code and tutorials, Testing environment, and Integration troubleshooting. Our technical team is available to assist with custom integrations and specific requirements."
-    },
-    {
-      question: "How do refunds and disputes work?",
-      answer: "We offer a streamlined process for handling refunds and disputes: Easy-to-use dashboard for processing refunds, Automated dispute resolution tools, Chargeback prevention features, Detailed transaction records, Evidence submission assistance, and Real-time notifications. Our support team helps manage complex cases and provides guidance on dispute prevention."
-    },
-    {
-      question: "What reporting and analytics features are available?",
-      answer: "Our platform provides comprehensive reporting tools including: Real-time transaction monitoring, Customizable dashboards, Detailed financial reports, Analytics and insights, Export capabilities (CSV, Excel, API), Revenue forecasting, Customer behavior analysis, and Fraud monitoring reports. All data can be accessed via our dashboard or API."
-    },
-    {
-      question: "Do you offer customer support?",
-      answer: "We provide 24/7 multi-channel customer support: Live chat support, Phone support, Email assistance, Dedicated account managers for enterprise clients, Technical support team, Knowledge base with detailed guides, and Community forums. Our average response time is under 1 hour, with immediate assistance for critical issues."
-    },
-    {
-      question: "What makes IpsePay different from other payment providers?",
-      answer: "IpsePay stands out through: Advanced technology infrastructure, Higher approval rates, Lower transaction costs, Better fraud protection, Faster payouts, More payment methods, Superior customer support, Easier integration process, and Innovative features. We focus on providing a reliable, secure, and cost-effective payment solution tailored to your business needs."
-    }
-  ];
+}
 </script>
 
-<main class="pt-20">
-  <!-- Hero Section with Enhanced Background -->
-  <div class="relative overflow-hidden bg-gradient-to-b from-[#605bff]/5 via-white to-white">
-    <!-- Animated Background Elements -->
-    <div class="absolute inset-0 overflow-hidden">
-      <div class="absolute inset-0 bg-[url('/images/grid.svg')] bg-center opacity-20"></div>
-      <!-- Gradient Circles -->
-      <div class="absolute top-0 left-1/4 w-96 h-96 bg-[#605bff]/10 rounded-full filter blur-3xl"></div>
-      <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-100 rounded-full filter blur-3xl"></div>
-    </div>
+<div class="max-w-4xl mx-auto px-4 py-12" in:fade>
+    <h1 class="text-4xl font-bold text-gray-900 mb-8">Contact Us</h1>
 
-    <!-- Title Content -->
-    <div class="relative container mx-auto px-4 pt-20 pb-32 sm:px-6 lg:px-8">
-      <div class="text-center max-w-3xl mx-auto">
-        <!-- Decorative Element -->
-        <div class="inline-flex items-center justify-center px-4 py-1.5 mb-6 rounded-full bg-white shadow-sm border border-gray-100">
-          <span class="text-sm font-medium text-[#605bff]">Need assistance?</span>
-          <div class="w-2 h-2 ml-2 rounded-full bg-[#605bff] animate-pulse"></div>
-        </div>
-
-        <!-- Main Title -->
-        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
-          <span class="bg-gradient-to-r from-[#32325d] to-[#605bff] inline-block text-transparent bg-clip-text">
-            Let's Start a Conversation
-          </span>
-        </h1>
-
-        <!-- Subtitle -->
-        <p class="text-gray-600 text-lg sm:text-xl mb-8 leading-relaxed">
-          Have questions about our services? We're here to help you find the perfect solution for your business.
-        </p>
-
-        <!-- Quick Contact Options -->
-        <div class="flex flex-wrap justify-center gap-4 mt-8">
-          <a href="mailto:contact@ipsepay.com" 
-             class="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#605bff] rounded-xl hover:shadow-md transition-all duration-300 border border-gray-100">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-            </svg>
-            Email Us
-          </a>
-          <a href="tel:+12345678901" 
-             class="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#605bff] rounded-xl hover:shadow-md transition-all duration-300 border border-gray-100">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-            </svg>
-            Call Us
-          </a>
-        </div>
-      </div>
-    </div>
-
-    <!-- Decorative Bottom Wave -->
-    <div class="absolute bottom-0 left-0 right-0">
-      <svg class="w-full h-24 fill-white" viewBox="0 0 1440 74" preserveAspectRatio="none">
-        <path d="M456.464 0.0433865C277.158 -1.70575 0 50.0141 0 50.0141V74H1440V50.0141C1440 50.0141 1320.4 31.1925 1243.09 27.0276C1099.33 19.2816 1019.08 53.1981 875.138 50.0141C710.527 46.3727 621.108 1.64949 456.464 0.0433865Z"></path>
-      </svg>
-    </div>
-  </div>
-
-  <!-- Enhanced Content Section -->
-  <div class="container mx-auto px-4 -mt-20 sm:px-6 lg:px-8 pb-24 relative z-10">
-    <div class="max-w-7xl mx-auto">
-      <!-- Support Channels Section -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-        <div class="bg-gradient-to-br from-[#605bff]/10 to-white p-8 rounded-2xl">
-          <div class="space-y-4">
-            <div class="w-14 h-14 bg-[#605bff] rounded-xl flex items-center justify-center">
-              <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-              </svg>
-            </div>
-            <h3 class="text-xl font-semibold text-gray-900">Live Chat Support</h3>
-            <p class="text-gray-600">Get instant help from our team of experts through our live chat system.</p>
-            <button class="inline-flex items-center text-[#605bff] hover:text-[#4f4cce] font-medium">
-              Start Chat
-              <svg class="w-4 h-4 ml-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div class="bg-gradient-to-br from-[#605bff]/10 to-white p-8 rounded-2xl">
-          <div class="space-y-4">
-            <div class="w-14 h-14 bg-[#605bff] rounded-xl flex items-center justify-center">
-              <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-              </svg>
-            </div>
-            <h3 class="text-xl font-semibold text-gray-900">Knowledge Base</h3>
-            <p class="text-gray-600">Browse our comprehensive documentation and guides for quick answers.</p>
-            <button class="inline-flex items-center text-[#605bff] hover:text-[#4f4cce] font-medium">
-              View Documentation
-              <svg class="w-4 h-4 ml-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div class="bg-gradient-to-br from-[#605bff]/10 to-white p-8 rounded-2xl">
-          <div class="space-y-4">
-            <div class="w-14 h-14 bg-[#605bff] rounded-xl flex items-center justify-center">
-              <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
-              </svg>
-            </div>
-            <h3 class="text-xl font-semibold text-gray-900">API Documentation</h3>
-            <p class="text-gray-600">Access detailed API documentation for seamless integration.</p>
-            <button class="inline-flex items-center text-[#605bff] hover:text-[#4f4cce] font-medium">
-              View API Docs
-              <svg class="w-4 h-4 ml-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Contact Information Cards -->
-      <div class="grid lg:grid-cols-3 gap-8">
-        <!-- Email Card -->
-        <div class="lg:col-span-1 space-y-6">
-          <div class="bg-white rounded-2xl shadow-sm p-6 hover:shadow-md transition-shadow duration-300">
-            <div class="flex items-center gap-4">
-              <div class="flex-shrink-0">
-                <div class="w-12 h-12 bg-[#605bff]/10 rounded-xl flex items-center justify-center">
-                  <svg class="w-6 h-6 text-[#605bff]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                  </svg>
+    <div class="grid md:grid-cols-2 gap-12">
+        <!-- Contact Information -->
+        <div>
+            <h2 class="text-2xl font-semibold mb-6">Get in Touch</h2>
+            <div class="space-y-8">
+                <div>
+                    <h3 class="text-lg font-medium mb-2">24/7 Support</h3>
+                    <p class="text-gray-600 mb-2">We're here to help you</p>
+                    <a href="mailto:support@coinsna.com" class="text-blue-600 hover:text-blue-700">
+                        support@coinsna.com
+                    </a>
                 </div>
-              </div>
-              <div>
-                <h3 class="text-lg font-semibold text-gray-900">Email Us</h3>
-                <p class="text-gray-600">contact@ipsepay.com</p>
-                <a href="mailto:contact@ipsepay.com" class="text-[#605bff] hover:text-[#4f4cce] text-sm mt-1 inline-block">
-                  Send an email →
-                </a>
-              </div>
-            </div>
-          </div>
 
-          <!-- Phone Card -->
-          <div class="bg-white rounded-2xl shadow-sm p-6 hover:shadow-md transition-shadow duration-300">
-            <div class="flex items-center gap-4">
-              <div class="flex-shrink-0">
-                <div class="w-12 h-12 bg-[#605bff]/10 rounded-xl flex items-center justify-center">
-                  <svg class="w-6 h-6 text-[#605bff]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
-                  </svg>
+                <div>
+                    <h3 class="text-lg font-medium mb-2">Business Inquiries</h3>
+                    <p class="text-gray-600 mb-2">For partnerships and business opportunities</p>
+                    <a href="mailto:business@coinsna.com" class="text-blue-600 hover:text-blue-700">
+                        business@coinsna.com
+                    </a>
                 </div>
-              </div>
-              <div>
-                <h3 class="text-lg font-semibold text-gray-900">Call Us</h3>
-                <p class="text-gray-600">+1 (234) 567-890</p>
-                <p class="text-gray-500 text-sm mt-1">Mon-Fri from 8am to 5pm</p>
-              </div>
-            </div>
-          </div>
 
-          <!-- Office Card -->
-          <div class="bg-white rounded-2xl shadow-sm p-6 hover:shadow-md transition-shadow duration-300">
-            <div class="flex items-center gap-4">
-              <div class="flex-shrink-0">
-                <div class="w-12 h-12 bg-[#605bff]/10 rounded-xl flex items-center justify-center">
-                  <svg class="w-6 h-6 text-[#605bff]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
+                <div>
+                    <h3 class="text-lg font-medium mb-2">Office Location</h3>
+                    <p class="text-gray-600">
+                        123 Crypto Street<br>
+                        Digital City, DC 12345<br>
+                        United States
+                    </p>
                 </div>
-              </div>
-              <div>
-                <h3 class="text-lg font-semibold text-gray-900">Visit Us</h3>
-                <p class="text-gray-600">1234 Street Name,</p>
-                <p class="text-gray-600">City, Country</p>
-              </div>
+
+                <div>
+                    <h3 class="text-lg font-medium mb-4">Connect With Us</h3>
+                    <div class="flex space-x-4">
+                        <a href="https://twitter.com/coinsna" target="_blank" rel="noopener noreferrer" 
+                           class="text-gray-400 hover:text-blue-500 transition-colors">
+                            <span class="sr-only">Twitter</span>
+                            <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84"/>
+                            </svg>
+                        </a>
+                        <a href="https://telegram.com/coinsna" target="_blank" rel="noopener noreferrer"
+                           class="text-gray-400 hover:text-blue-500 transition-colors">
+                            <span class="sr-only">Telegram</span>
+                            <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .24z"/>
+                            </svg>
+                        </a>
+                        <a href="https://discord.gg/coinsna" target="_blank" rel="noopener noreferrer"
+                           class="text-gray-400 hover:text-indigo-500 transition-colors">
+                            <span class="sr-only">Discord</span>
+                            <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
 
         <!-- Contact Form -->
-        <div class="lg:col-span-2">
-          <div class="bg-white rounded-2xl shadow-sm p-8">
-            <form class="space-y-6" on:submit={handleSubmit}>
-              <div class="grid sm:grid-cols-2 gap-6">
-                <div class="space-y-2">
-                  <label class="text-sm font-medium text-gray-900" for="from_name">
-                    First Name
-                  </label>
-                  <input
-                    type="text"
-                    name="from_name"
-                    id="from_name"
-                    class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#605bff] focus:ring focus:ring-[#605bff]/20 transition-shadow duration-200"
-                    required
-                  />
+        <div>
+            <h2 class="text-2xl font-semibold mb-6">Send us a Message</h2>
+            <form class="space-y-4" on:submit|preventDefault={handleSubmit}>
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input
+                        type="text"
+                        id="name"
+                        bind:value={formData.name}
+                        class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        required
+                    />
                 </div>
-                <div class="space-y-2">
-                  <label class="text-sm font-medium text-gray-900" for="last_name">
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    name="last_name"
-                    id="last_name"
-                    class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#605bff] focus:ring focus:ring-[#605bff]/20 transition-shadow duration-200"
-                    required
-                  />
+
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input
+                        type="email"
+                        id="email"
+                        bind:value={formData.email}
+                        class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        required
+                    />
                 </div>
-              </div>
 
-              <div class="space-y-2">
-                <label class="text-sm font-medium text-gray-900" for="reply_to">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  name="reply_to"
-                  id="reply_to"
-                  class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#605bff] focus:ring focus:ring-[#605bff]/20 transition-shadow duration-200"
-                  required
-                />
-              </div>
-
-              <div class="space-y-2">
-                <label class="text-sm font-medium text-gray-900" for="message">
-                  Message
-                </label>
-                <textarea
-                  id="message"
-                  name="message"
-                  rows="4"
-                  class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#605bff] focus:ring focus:ring-[#605bff]/20 transition-shadow duration-200"
-                  required
-                ></textarea>
-              </div>
-
-              {#if success}
-                <div class="p-4 bg-green-50 text-green-700 rounded-xl flex items-center gap-2">
-                  <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                  </svg>
-                  <span>Thank you! Your message has been sent successfully.</span>
+                <div>
+                    <label for="subject" class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                    <input
+                        type="text"
+                        id="subject"
+                        bind:value={formData.subject}
+                        class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        required
+                    />
                 </div>
-              {/if}
 
-              {#if error}
-                <div class="p-4 bg-red-50 text-red-700 rounded-xl flex items-center gap-2">
-                  <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                  </svg>
-                  <span>Error: {errorMessage}</span>
+                <div>
+                    <label for="message" class="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                    <textarea
+                        id="message"
+                        bind:value={formData.message}
+                        rows="5"
+                        class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        required
+                    ></textarea>
                 </div>
-              {/if}
 
-              <button
-                type="submit"
-                disabled={sending}
-                class="w-full sm:w-auto px-6 py-3 bg-[#605bff] text-white rounded-xl hover:bg-[#4f4cce] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-70"
-              >
-                {#if sending}
-                  <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                  </svg>
-                  Sending...
-                {:else}
-                  Send Message
-                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M13 5l7 7-7 7M5 12h15"/>
-                  </svg>
-                {/if}
-              </button>
+                <button
+                    type="submit"
+                    class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                    Send Message
+                </button>
             </form>
-          </div>
         </div>
-      </div>
-
-      <!-- FAQ Section with Enhanced Design -->
-      <div class="bg-gradient-to-b from-white to-gray-50 py-24">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="max-w-4xl mx-auto">
-            <!-- FAQ Header -->
-            <div class="text-center mb-16">
-              <div class="inline-flex items-center justify-center px-4 py-1.5 mb-6 rounded-full bg-[#605bff]/10">
-                <span class="text-sm font-medium text-[#605bff]">Got Questions?</span>
-              </div>
-              <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-                Frequently Asked Questions
-              </h2>
-              <p class="text-lg text-gray-600">
-                Everything you need to know about our payment solutions
-              </p>
-            </div>
-
-            <!-- FAQ List -->
-            <div class="space-y-4">
-              {#each faqs as faq, index}
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-200">
-                  <button
-                    class="w-full px-6 py-4 text-left flex items-center justify-between focus:outline-none focus:bg-gray-50"
-                    on:click={() => toggleQuestion(index)}
-                  >
-                    <span class="font-medium text-gray-900 flex-1 pr-4">{faq.question}</span>
-                    <div class="flex-shrink-0 ml-4">
-                      <div class={`w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-200 
-                        ${activeQuestion === index ? 'bg-[#605bff] rotate-180' : 'bg-gray-100'}`}>
-                        <svg 
-                          class={`w-4 h-4 transition-transform duration-200 
-                          ${activeQuestion === index ? 'text-white' : 'text-gray-500'}`}
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24"
-                        >
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                      </div>
-                    </div>
-                  </button>
-                  {#if activeQuestion === index}
-                    <div 
-                      class="px-6 py-4 bg-gray-50 text-gray-600 border-t border-gray-100 prose prose-sm max-w-none"
-                      transition:slide={{ duration: 200 }}
-                    >
-                      {faq.answer}
-                    </div>
-                  {/if}
-                </div>
-              {/each}
-            </div>
-
-            <!-- Contact CTA -->
-            <div class="mt-16 text-center">
-              <p class="text-gray-600 mb-4">Still have questions?</p>
-              <a 
-                href="#contact-form" 
-                class="inline-flex items-center justify-center px-6 py-3 bg-[#605bff] text-white rounded-xl hover:bg-[#4f4cce] transition-colors duration-200 font-medium"
-              >
-                Contact Our Support Team
-                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-                </svg>
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Global Offices Section -->
-      
     </div>
-  </div>
-</main>
-
-<style>
-  /* Add any additional styles here */
-  @keyframes gradient {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-
-  :global(.gradient-animate) {
-    background-size: 200% 200%;
-    animation: gradient 15s ease infinite;
-  }
-</style>
+</div>

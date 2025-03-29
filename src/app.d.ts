@@ -23,9 +23,13 @@ declare global {
             token: string;
             isAuthenticated: boolean;
         } | null;
+        grecaptcha: any;
+        onRecaptchaVerify: (token: string) => void;
     }
 }
 
 // declare global "glightbox";
 
 export { }
+
+/// <reference types="@sveltejs/kit" />

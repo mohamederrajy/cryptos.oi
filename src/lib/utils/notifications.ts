@@ -21,4 +21,3 @@ export const toast = {
     warning: (message: string, options?: NotifyOptions) => notify('warning', message, options),
     info: (message: string, options?: NotifyOptions) => notify('info', message, options)
 };
-

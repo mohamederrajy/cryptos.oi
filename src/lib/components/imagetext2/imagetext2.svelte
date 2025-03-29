@@ -17,7 +17,7 @@
     ];
 </script>
 
-<section class="relative py-24 bg-[#F8FAFC] overflow-hidden">
+<section class="relative py-12 lg:py-24 bg-[#F8FAFC] overflow-hidden">
     <!-- Background Elements -->
     <div class="absolute inset-0">
         <div class="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-br from-blue-50/40 to-purple-50/40 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
@@ -25,49 +25,49 @@
     </div>
 
     <div class="container mx-auto px-4 relative">
-        <div class="flex flex-wrap items-center">
-            <!-- Left Content -->
-            <div class="w-full lg:w-1/2 mb-12 lg:mb-0" in:fly={{ x: -50, duration: 1000 }}>
-                <div class="relative">
+        <div class="flex flex-col-reverse lg:flex-row items-center">
+            <!-- Left Content - Image -->
+            <div class="w-full lg:w-1/2 mt-8 lg:mt-0" in:fly={{ x: -50, duration: 1000 }}>
+                <div class="relative px-4 lg:px-0">
                     <!-- Main Image -->
                     <div class="relative z-10">
                         <img 
                             src="/images/benefit-a.png" 
                             alt="Trading Benefits"
-                            class="w-full h-auto"
+                            class="w-full h-auto max-w-[400px] mx-auto lg:max-w-none"
                         />
                     </div>
                 </div>
             </div>
 
             <!-- Right Content -->
-            <div class="w-full lg:w-1/2 lg:pl-16" in:fly={{ x: 50, duration: 1000 }}>
-                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-600 font-medium mb-6">
+            <div class="w-full lg:w-1/2 lg:pl-16 text-center lg:text-left" in:fly={{ x: 50, duration: 1000 }}>
+                <div class="inline-flex items-center justify-center lg:justify-start gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-600 font-medium mb-4 lg:mb-6">
                     BECOME AN AFFILIATE
                 </div>
 
-                <h2 class="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 lg:mb-6 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                     Benefits For You
                 </h2>
 
-                <p class="text-gray-600 text-lg mb-8">
+                <p class="text-gray-600 text-base lg:text-lg mb-6 lg:mb-8">
                     Referring is a win-win situation.
                 </p>
 
                 <!-- Benefits List -->
-                <div class="space-y-6 mb-10">
+                <div class="space-y-4 lg:space-y-6 mb-8 lg:mb-10">
                     {#each benefits as benefit}
-                        <div class="flex items-start gap-4">
-                            <div class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mt-1">
-                                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="flex items-start gap-3 lg:gap-4">
+                            <div class="flex-shrink-0 w-5 h-5 lg:w-6 lg:h-6 rounded-full bg-blue-100 flex items-center justify-center mt-1">
+                                <svg class="w-3 h-3 lg:w-4 lg:h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                                 </svg>
                             </div>
                             <div>
-                                <h3 class="text-lg font-semibold text-gray-900 mb-1">
+                                <h3 class="text-base lg:text-lg font-semibold text-gray-900 mb-1">
                                     {benefit.title}
                                 </h3>
-                                <p class="text-gray-600">
+                                <p class="text-sm lg:text-base text-gray-600">
                                     {benefit.description}
                                 </p>
                             </div>
@@ -76,9 +76,9 @@
                 </div>
 
                 <button 
-                    class="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-xl 
-                           hover:bg-blue-700 transition-all duration-200 font-medium
-                           shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 
+                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 lg:px-8 py-3 lg:py-4 
+                           bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 
+                           font-medium shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 
                            transform hover:-translate-y-0.5 active:translate-y-0"
                 >
                     <span>Become an Affiliate</span>

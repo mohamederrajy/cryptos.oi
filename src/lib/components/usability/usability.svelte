@@ -41,7 +41,7 @@
     ];
 </script>
 
-<section class="relative py-24 bg-[#F8FAFC]" in:fade={{ duration: 800 }}>
+<section class="relative py-12 lg:py-24 bg-[#F8FAFC]" in:fade={{ duration: 800 }}>
     <!-- Background Elements -->
     <div class="absolute inset-0 overflow-hidden">
         <div class="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-br from-blue-50/40 to-purple-50/40 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
@@ -50,32 +50,33 @@
 
     <div class="container mx-auto px-4 relative">
         <!-- Header -->
-        <div class="text-center max-w-3xl mx-auto mb-20">
-            <h2 class="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+        <div class="text-center max-w-3xl mx-auto mb-12 lg:mb-20">
+            <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 lg:mb-6 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                 We are the most usability cryptocurrency platform.
             </h2>
-            <p class="text-gray-600 text-lg">
+            <p class="text-base lg:text-lg text-gray-600 px-4 lg:px-0">
                 We believe XonBIT is here to stay — and that a future worth building is one which opens its doors and invites everyone in.
             </p>
         </div>
 
         <!-- Features Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-12">
             {#each features as feature, index}
                 <div 
                     class="group"
                     in:fly={{ y: 20, duration: 800, delay: index * 100 }}
                 >
-                    <div class="flex flex-col items-center text-center p-8 rounded-2xl bg-white/50 backdrop-blur-sm
+                    <div class="flex flex-col items-center text-center p-6 lg:p-8 rounded-xl lg:rounded-2xl bg-white/50 backdrop-blur-sm
                                border border-gray-100 hover:border-gray-200 transition-all duration-300
                                hover:shadow-xl hover:shadow-blue-500/5">
                         <!-- Icon Container -->
-                        <div class="w-20 h-20 mb-6 relative">
-                            <div class="absolute inset-0 bg-gradient-to-r {feature.gradient} opacity-10 rounded-2xl 
+                        <div class="w-16 h-16 lg:w-20 lg:h-20 mb-4 lg:mb-6 relative">
+                            <div class="absolute inset-0 bg-gradient-to-r {feature.gradient} opacity-10 rounded-xl lg:rounded-2xl 
                                       transform rotate-6 transition-transform group-hover:rotate-12 group-hover:scale-110"></div>
-                            <div class="absolute inset-0 bg-white rounded-2xl shadow-sm flex items-center justify-center
+                            <div class="absolute inset-0 bg-white rounded-xl lg:rounded-2xl shadow-sm flex items-center justify-center
                                       transform transition-transform group-hover:-translate-y-1">
-                                <div class="w-12 h-12 bg-gradient-to-r {feature.gradient} rounded-xl p-2.5 flex items-center justify-center">
+                                <div class="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-r {feature.gradient} rounded-lg lg:rounded-xl 
+                                          p-2 lg:p-2.5 flex items-center justify-center">
                                     <svg class="w-full h-full text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                         {@html feature.icon}
                                     </svg>
@@ -84,10 +85,10 @@
                         </div>
 
                         <!-- Content -->
-                        <h3 class="text-xl font-bold mb-4 text-gray-900 group-hover:text-blue-600 transition-colors duration-300">
+                        <h3 class="text-lg lg:text-xl font-bold mb-2 lg:mb-4 text-gray-900 group-hover:text-blue-600 transition-colors duration-300">
                             {feature.title}
                         </h3>
-                        <p class="text-gray-600 leading-relaxed">
+                        <p class="text-sm lg:text-base text-gray-600 leading-relaxed">
                             {feature.description}
                         </p>
                     </div>
@@ -117,5 +118,30 @@
     .animate-gradient {
         background-size: 200% 200%;
         animation: gradient-shift 6s ease infinite;
+    }
+
+    /* Responsive hover effects */
+    @media (hover: none) {
+        .group:hover {
+            transform: none;
+        }
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+        .group {
+            transition: none;
+        }
+        
+        .animate-gradient {
+            animation: none;
+        }
+    }
+
+    /* Adjust spacing for mobile */
+    @media (max-width: 640px) {
+        .group {
+            margin-bottom: 1rem;
+        }
     }
 </style>

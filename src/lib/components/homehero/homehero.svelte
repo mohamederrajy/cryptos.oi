@@ -91,7 +91,7 @@
     });
 </script>
 
-<section class="relative py-24 overflow-hidden bg-[#F8FAFC]">
+<section class="relative py-12 lg:py-24 overflow-hidden bg-[#F8FAFC]">
     <!-- Background Elements -->
     <div class="absolute inset-0 overflow-hidden">
         <div class="absolute -top-40 -right-40 w-80 h-80 bg-blue-50 rounded-full blur-3xl opacity-50"></div>
@@ -99,10 +99,10 @@
     </div>
 
     <div class="container mx-auto px-4 relative">
-        <div class="flex flex-wrap items-center">
-            <!-- Left Content -->
-            <div class="w-full lg:w-1/2 mb-12 lg:mb-0" in:fly={{ x: -50, duration: 1000 }}>
-                <h1 class="text-5xl md:text-6xl font-bold mb-6 leading-tight bg-clip-text text-transparent 
+        <div class="flex flex-col lg:flex-row items-center">
+            <!-- Left Content - Updated for mobile -->
+            <div class="w-full lg:w-1/2 mb-8 lg:mb-0 text-center lg:text-left" in:fly={{ x: -50, duration: 1000 }}>
+                <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 lg:mb-6 leading-tight bg-clip-text text-transparent 
                            bg-gradient-to-r from-gray-900 to-gray-600">
                     Trade Crypto<br>
                     <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
@@ -110,48 +110,48 @@
                     </span>
                 </h1>
                 
-                <p class="text-gray-600 text-lg mb-8 max-w-lg">
+                <p class="text-gray-600 text-base lg:text-lg mb-6 lg:mb-8 max-w-lg mx-auto lg:mx-0">
                     Experience seamless trading with real-time market data and advanced trading tools.
                 </p>
 
-                <!-- Stats Grid -->
-                <div class="grid grid-cols-3 gap-6 mb-10">
+                <!-- Stats Grid - Updated for mobile -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6 mb-8 lg:mb-10">
                     {#each ['24/7 Trading', '100+ Pairs', 'Instant Deposits'] as stat}
-                        <div class="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200">
+                        <div class="bg-white rounded-xl p-3 lg:p-4 shadow-sm hover:shadow-md transition-all duration-200">
                             <div class="text-sm text-gray-600">{stat}</div>
                         </div>
                     {/each}
                 </div>
 
-                <!-- CTA Button -->
-                <button class="px-8 py-4 bg-blue-600 text-white rounded-xl font-medium
+                <!-- CTA Button - Updated for mobile -->
+                <button class="w-full sm:w-auto px-6 lg:px-8 py-3 lg:py-4 bg-blue-600 text-white rounded-xl font-medium
                              hover:bg-blue-700 transition-all duration-200 shadow-lg shadow-blue-500/20
                              hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-0.5">
                     Start Trading Now
                 </button>
             </div>
 
-            <!-- Right Content -->
-            <div class="w-full lg:w-1/2" in:fly={{ x: 50, duration: 1000 }}>
-                <div class="relative">
+            <!-- Right Content - Updated for mobile -->
+            <div class="w-full lg:w-1/2 mt-8 lg:mt-0" in:fly={{ x: 50, duration: 1000 }}>
+                <div class="relative px-4 lg:px-0">
                     <!-- Main Image -->
                     <div class="relative z-10">
                         <img 
                             src="/images/homw maim.png" 
                             alt="Trading Platform"
-                            class="w-full h-auto"
+                            class="w-full h-auto max-w-[500px] mx-auto lg:max-w-none"
                         />
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Slider Section -->
-        <div class="mt-20" in:fade={{ duration: 1000, delay: 500 }}>
-            <div class="relative overflow-hidden px-4">
-                <!-- Slider Controls -->
+        <!-- Slider Section - Updated for mobile -->
+        <div class="mt-12 lg:mt-20" in:fade={{ duration: 1000, delay: 500 }}>
+            <div class="relative overflow-hidden px-2 lg:px-4">
+                <!-- Slider Controls - Hidden on mobile -->
                 <button 
-                    class="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full 
+                    class="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full 
                            bg-white shadow-lg hover:shadow-xl transition-all duration-200 
                            {currentSlide === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}"
                     on:click={prevSlide}
@@ -161,27 +161,15 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
-                
-                <button 
-                    class="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full 
-                           bg-white shadow-lg hover:shadow-xl transition-all duration-200 
-                           {currentSlide === maxSlides ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}"
-                    on:click={nextSlide}
-                    disabled={currentSlide === maxSlides}
-                >
-                    <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                </button>
 
-                <!-- Enhanced Slider Container -->
-                <div class="overflow-hidden mx-12">
+                <!-- Enhanced Slider Container - Updated for mobile -->
+                <div class="overflow-hidden mx-2 lg:mx-12">
                     <div 
                         class="flex transition-transform duration-500 ease-in-out"
-                        style="transform: translateX(-{currentSlide * 25}%)"
+                        style="transform: translateX(-{currentSlide * (100/slidesPerView)}%)"
                     >
                         {#each slides as slide}
-                            <div class="w-1/4 flex-shrink-0 px-3">
+                            <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 flex-shrink-0 px-2 lg:px-3">
                                 <div class="bg-white rounded-2xl p-2 shadow-lg hover:shadow-xl 
                                           transition-all duration-300 transform hover:-translate-y-1">
                                     <img 
@@ -195,13 +183,13 @@
                     </div>
                 </div>
 
-                <!-- Enhanced Slider Dots -->
-                <div class="flex justify-center gap-2 mt-8">
+                <!-- Enhanced Slider Dots - Updated for mobile -->
+                <div class="flex justify-center gap-1 lg:gap-2 mt-4 lg:mt-8">
                     {#each Array(maxSlides + 1) as _, i}
                         <button 
-                            class="w-2 h-2 rounded-full transition-all duration-200 
+                            class="w-1.5 lg:w-2 h-1.5 lg:h-2 rounded-full transition-all duration-200 
                                    {i === currentSlide 
-                                       ? 'bg-blue-600 w-6' 
+                                       ? 'bg-blue-600 w-4 lg:w-6' 
                                        : 'bg-gray-300 hover:bg-gray-400'}"
                             on:click={() => currentSlide = i}
                         ></button>

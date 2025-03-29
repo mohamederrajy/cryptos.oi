@@ -1,40 +1,75 @@
+import type { LayoutLoad } from './$types';
+import { fetchUserProfile } from '$lib/services/userService';
 import { session } from '$lib/stores/session';
 import { redirect } from '@sveltejs/kit';
+import { browser } from '$app/environment';
 
-export async function load({ url }) {
-    // Initialize session
-    session.initialize();
+export const load: LayoutLoad = async ({ fetch, url }) => {
+    console.log('Layout load starting for path:', url.pathname);
+    
+    try {
+        const token = browser ? localStorage.getItem('token') : null;
+        const currentUser = session.getUser();
+        
+        // If we have a token and user, we're good
+        if (token && currentUser) {
+            return {
+                user: currentUser,
+                isAuthenticated: true,
+                isAdmin: currentUser.isAdmin ?? false
+            };
+        }
 
-    // List of routes that require authentication
-    const protectedRoutes = [
-        '/admin',
-        '/wallets',
-        '/exchange',
-        '/activities'
-    ];
+        // If we have a token but no user, try to fetch profile
+        if (token) {
+            try {
+                const profile = await fetchUserProfile(fetch);
+                if (profile) {
+                    session.set({
+                        isAuthenticated: true,
+                        user: profile,
+                        loading: false,
+                        token
+                    });
 
-    // Check if current path starts with any protected route
-    const isProtectedRoute = protectedRoutes.some(route => 
-        url.pathname.startsWith(route)
-    );
+                    return {
+                        user: profile,
+                        isAuthenticated: true,
+                        isAdmin: profile.isAdmin ?? false
+                    };
+                }
+            } catch (error) {
+                console.error('Failed to fetch profile:', error);
+            }
+        }
 
-    // Get user and check if admin
-    const user = session.getUser();
-    const isAdmin = user?.role === 'admin';
+        // List of protected routes
+        const protectedRoutes = ['/admin', '/wallets', '/exchange', '/activities', '/profile'];
+        const isProtectedRoute = protectedRoutes.some(route => url.pathname.startsWith(route));
 
-    // Redirect non-admins from admin routes
-    if (url.pathname.startsWith('/admin') && !isAdmin) {
-        throw redirect(302, '/');
+        // Only redirect if we don't have a token and trying to access protected route
+        if (isProtectedRoute && !token) {
+            console.log('Protected route access denied, redirecting to login');
+            throw redirect(302, '/account/login');
+        }
+
+        return {
+            user: null,
+            isAuthenticated: false,
+            isAdmin: false
+        };
+
+    } catch (error) {
+        console.error('Layout load error:', error);
+        
+        if (error instanceof redirect) {
+            throw error;
+        }
+
+        return {
+            user: null,
+            isAuthenticated: false,
+            isAdmin: false
+        };
     }
-
-    // Only redirect to login if trying to access protected routes without session
-    if (isProtectedRoute && !session.checkSession()) {
-        throw redirect(302, '/account/login');
-    }
-
-    return {
-        user,
-        isAuthenticated: session.checkSession(),
-        isAdmin
-    };
-} 
+}; 

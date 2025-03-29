@@ -1,121 +1,104 @@
 import { writable } from 'svelte/store';
-import type { UserProfile } from '$lib/types/user';
-import { fetchUserProfile } from '$lib/services/userService';
+import type { UserProfile } from '$lib/services/userService';
 import { browser } from '$app/environment';
 
-interface Session {
+interface SessionState {
     isAuthenticated: boolean;
-    token: string | null;
     user: UserProfile | null;
+    loading: boolean;
+    token?: string | null;
 }
 
 function createSessionStore() {
-    // Initialize from localStorage if available
-    const initialState: Session = {
-        isAuthenticated: false,
-        token: null,
-        user: null
-    };
-
-    if (browser) {
-        const token = localStorage.getItem('token');
-        const savedUser = localStorage.getItem('user');
-        if (token && savedUser) {
-            initialState.isAuthenticated = true;
-            initialState.token = token;
-            initialState.user = JSON.parse(savedUser);
-        }
-    }
-
-    const { subscribe, set, update } = writable<Session>(initialState);
+    // Initialize with token from localStorage if available
+    const initialToken = browser ? localStorage.getItem('token') : null;
+    
+    const { subscribe, set, update } = writable<SessionState>({
+        isAuthenticated: !!initialToken,
+        user: null,
+        loading: true,
+        token: initialToken
+    });
 
     return {
         subscribe,
+        set,
+        update,
         initialize: async () => {
             if (!browser) return;
             
             const token = localStorage.getItem('token');
             if (token) {
-                try {
-                    const profile = await fetchUserProfile();
-                    const sessionData = {
-                        isAuthenticated: true,
-                        token,
-                        user: profile
-                    };
-                    set(sessionData);
-                } catch (error) {
-                    console.error('Failed to fetch profile:', error);
-                }
+                // Keep existing session if we have a token
+                update(state => ({
+                    ...state,
+                    isAuthenticated: true,
+                    token,
+                    loading: false
+                }));
+            } else {
+                set({
+                    isAuthenticated: false,
+                    user: null,
+                    loading: false,
+                    token: null
+                });
             }
-        },
-        checkSession: () => {
-            if (!browser) return false;
-            const token = localStorage.getItem('token');
-            return !!token;
         },
         getUser: () => {
-            if (!browser) return null;
-            const user = localStorage.getItem('user');
-            return user ? JSON.parse(user) : null;
+            let state: SessionState | undefined;
+            subscribe(s => state = s)();
+            return state?.user || null;
         },
-        login: async (token: string, basicUser: any) => {
+        checkSession: () => {
+            let state: SessionState | undefined;
+            subscribe(s => state = s)();
+            
+            // Consider session valid if we have a token
+            const token = browser ? localStorage.getItem('token') : null;
+            return !!token;
+        },
+        login: (token: string, user: UserProfile) => {
             if (!browser) return;
-            
-            console.log('Basic user data:', basicUser);
-            
-            const initialSession = {
-                isAuthenticated: true,
-                token,
-                user: basicUser
-            };
             
             localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(basicUser));
-            set(initialSession);
             
-            try {
-                const profile = await fetchUserProfile();
-                console.log('Full user profile:', profile);
-                const fullSession = {
-                    ...initialSession,
-                    user: profile
-                };
-                
-                localStorage.setItem('user', JSON.stringify(profile));
-                set(fullSession);
-            } catch (error) {
-                console.error('Failed to fetch full profile:', error);
-            }
+            set({
+                isAuthenticated: true,
+                user,
+                loading: false,
+                token
+            });
         },
         logout: () => {
-            if (!browser) return;
+            if (browser) {
+                localStorage.removeItem('token');
+            }
             
-            // Clear all session data
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
             set({
                 isAuthenticated: false,
-                token: null,
-                user: null
+                user: null,
+                loading: false,
+                token: null
             });
         },
         updateProfile: (profile: UserProfile) => {
-            if (!browser) return;
+            const token = browser ? localStorage.getItem('token') : null;
             
-            localStorage.setItem('user', JSON.stringify(profile));
             update(state => ({
                 ...state,
-                user: profile
+                user: profile,
+                isAuthenticated: true,
+                token
             }));
         },
         updateWallet: (wallet: any) => {
             update(state => ({
                 ...state,
-                user: {
+                user: state.user ? {
                     ...state.user,
                     wallet
-                }
+                } : null
             }));
         }
     };

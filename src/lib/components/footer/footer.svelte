@@ -66,7 +66,7 @@
                 <h3 class="text-lg font-semibold mb-4">Products</h3>
                 <ul class="space-y-2">
                     <li><a href="/exchange" class="text-gray-600 hover:text-blue-600">Exchange</a></li>
-                    <li><a href="/wallet" class="text-gray-600 hover:text-blue-600">Wallet</a></li>
+                    <li><a href="/wallets" class="text-gray-600 hover:text-blue-600">Wallet</a></li>
                     <li><a href="/explorer" class="text-gray-600 hover:text-blue-600">Explorer</a></li>
                     </ul>
                 </div>
@@ -92,7 +92,7 @@
 
         <div class="mt-8 pt-8 border-t border-gray-200">
             <div class="flex justify-between items-center">
-                <p class="text-gray-500">© 2024 Your Company. All rights reserved.</p>
+                <p class="text-gray-500">© 2025 CRYPTONIAX. All rights reserved.</p>
                 <div class="flex space-x-6">
                     <a href="#" class="text-gray-400 hover:text-gray-500">
                         <span class="sr-only">Twitter</span>

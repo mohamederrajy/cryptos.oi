@@ -7,12 +7,33 @@
     
     console.log('Wallets page mounted');
 
+    // Add these type definitions at the top of the script
+    interface WalletBalances {
+        [key: string]: number;  // Allow any string key
+    }
+
+    interface Cryptocurrency {
+        symbol: string;
+        name: string;
+        icon: string;
+    }
+
+    interface Withdrawal {
+        _id: string;
+        amount: number;
+        currency: string;
+        withdrawalAddress: string;
+        status: string;
+        createdAt: string;
+        txHash?: string;
+    }
+
     // Initialize balances from session user data
     $: totalBalance = {
         usdt: $session.user?.wallet?.totalBalance?.USDT || 0,
-        usd: $session.user?.wallet?.totalBalance?.USDT || 0.00, // USDT is 1:1 with USD
+        usd: $session.user?.wallet?.totalBalance?.USDT || 0.00,
         change: '+0.00%'
-    };
+    } as WalletBalances;
 
     $: assetBalance = {
         usdt: $session.user?.wallet?.assetBalance?.USDT || 0,
@@ -43,12 +64,6 @@
     let selectedNetwork = 'BTC';
 
     // Add this new interface and data
-    interface Cryptocurrency {
-        symbol: string;
-        name: string;
-        icon: string;
-    }
-
     const cryptocurrencies: Cryptocurrency[] = [
         {
             symbol: 'USDT',
@@ -111,13 +126,52 @@
         withdrawAmount = '';
     }
 
-    async function handleWithdraw() {
-        if (!withdrawAmount || !withdrawAddress) {
-            notifications.error('Please fill in all fields');
-            return;
-        }
+    // Update the balance computation
+    $: availableBalance = {
+        USDT: $session.user?.wallet?.totalBalance?.USDT || 0
+    } as WalletBalances;
 
+    // Add proper interface for withdrawal request
+    interface WithdrawalRequest {
+        amount: number;
+        currency: "USDT";
+        withdrawalAddress: string;
+    }
+
+    // Update the handleWithdraw function with corrected balance checking
+    async function handleWithdraw() {
         try {
+            console.log('💡 Starting withdrawal process:', { withdrawAmount, withdrawAddress });
+
+            const amountNum = Number(withdrawAmount);
+            
+            // Get current balance
+            const totalBalance = $session.user?.wallet?.totalBalance?.USDT || 0;
+            
+            // Set available balance equal to total balance
+            const availableBalance = totalBalance; // This is the key change
+
+            console.log('💰 Balance details:', {
+                totalBalance,
+                availableBalance,
+                requestedAmount: amountNum,
+                user: $session.user?.email,
+                wallet: $session.user?.wallet
+            });
+
+            // Check if user has sufficient balance
+            if (amountNum > availableBalance) {
+                const errorMsg = `Insufficient available balance. Required: ${amountNum} USDT, Available: ${availableBalance} USDT`;
+                console.log('❌ Balance check failed:', {
+                    availableBalance,
+                    required: amountNum,
+                    totalBalance
+                });
+                notifications.error(errorMsg);
+                return;
+            }
+
+            // Proceed with withdrawal if balance is sufficient
             const response = await fetch(`${PUBLIC_API_URL}/api/withdrawal/request`, {
                 method: 'POST',
                 headers: {
@@ -125,24 +179,85 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    amount: Number(withdrawAmount),
+                    amount: amountNum,
                     currency: 'USDT',
                     withdrawalAddress: withdrawAddress
                 })
             });
 
+            const responseData = await response.json();
+            console.log('📥 API response:', {
+                status: response.status,
+                statusText: response.statusText,
+                data: responseData,
+                balanceAtRequest: availableBalance
+            });
+
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to process withdrawal');
+                if (responseData.error === 'Insufficient balance') {
+                    const errorMsg = `Server reports insufficient balance. Required: ${responseData.required} USDT, Server Available: ${responseData.available} USDT, Client Available: ${availableBalance} USDT`;
+                    console.log('❌ Balance mismatch detected:', {
+                        serverAvailable: responseData.available,
+                        clientAvailable: availableBalance,
+                        required: responseData.required
+                    });
+                    console.log('🔔 Showing notification:', errorMsg);
+                    notifications.error(errorMsg);
+                    
+                    // Refresh balance after mismatch
+                    await refreshBalance();
+                    return;
+                }
+
+                const errorMsg = responseData.message || responseData.error || 'Withdrawal request failed';
+                console.error('❌ API error:', responseData);
+                console.log('🔔 Showing notification:', errorMsg);
+                notifications.error(errorMsg);
+                return;
             }
 
-            notifications.success('Withdrawal request submitted successfully');
-            closeWithdrawModal();
-            await refreshWalletData();
-            await fetchWithdrawals();
+            const successMsg = 'Withdrawal request submitted successfully';
+            console.log('✅ Withdrawal success:', responseData);
+            console.log('🔔 Showing notification:', successMsg);
+            notifications.success(successMsg);
+
+            console.log('🧹 Clearing form');
+            withdrawAmount = '';
+            withdrawAddress = '';
+            showWithdrawModal = false;
+
+            console.log('🔄 Refreshing data');
+            await Promise.all([
+                fetchWithdrawals(),
+                refreshBalance()
+            ]);
+
+        } catch (error: any) {
+            const errorMsg = error.message || 'An unexpected error occurred';
+            console.error('❌ Withdrawal error:', {
+                message: error.message,
+                error: error
+            });
+            console.log('🔔 Showing notification:', errorMsg);
+            notifications.error(errorMsg);
+        }
+    }
+
+    // Add this helper function to refresh balance
+    async function refreshBalance() {
+        try {
+            const response = await fetch(`${PUBLIC_API_URL}/api/user/profile`, {
+                headers: {
+                    'Authorization': `Bearer ${$session.token}`
+                }
+            });
+            
+            if (response.ok) {
+                const userData = await response.json();
+                session.updateProfile(userData);
+            }
         } catch (error) {
-            console.error('Withdrawal error:', error);
-            notifications.error(error.message || 'Failed to process withdrawal');
+            console.error('Failed to refresh balance:', error);
         }
     }
 
@@ -162,14 +277,19 @@
     let copySuccess = false;
     let qrCode = ''; // You'll need to generate this based on the address
 
-    // Add this function for copy functionality
-    async function copyToClipboard(text: string) {
+    // Update the copyToClipboard function
+    async function copyToClipboard(text: string | undefined) {
+        if (!text) {
+            notifications.error('Nothing to copy');
+            return;
+        }
+        
         try {
             await navigator.clipboard.writeText(text);
-            copySuccess = true;
-            setTimeout(() => copySuccess = false, 2000);
+            notifications.success('Copied to clipboard');
         } catch (err) {
             console.error('Failed to copy:', err);
+            notifications.error('Failed to copy to clipboard');
         }
     }
 
@@ -248,16 +368,6 @@
         amount: number;
         currency: string;
         status: string;
-        createdAt: string;
-        txHash?: string;
-    }
-
-    interface Withdrawal {
-        id: string;
-        amount: number;
-        currency: string;
-        status: string;
-        withdrawalAddress: string;
         createdAt: string;
         txHash?: string;
     }
@@ -360,8 +470,20 @@
     // Add this constant at the top with your other constants
     const USDT_ADDRESS = 'TDfbHnvSuRe9YZdDB2FWZqsLTWD19XfZ8q';
 
-    // First, add the constant for the deposit address at the top with your other constants
-    const USDT_DEPOSIT_ADDRESS = 'TDfbHnvSuRe9YZdDB2FWZqsLTWD19XfZ8q';
+    // First, update the constant at the top of the script section where other constants are defined
+    const USDT_DEPOSIT_ADDRESS = 'TVAa2JDSo5MboXUkDecxa57pPNYy33876M';
+
+    // Add this new variable for the withdrawal approval modal
+    let showApprovalModal = false;
+    let networkFee = 0.00011; // Assuming a default network fee
+    let isProcessing = false;
+
+    // Add this function to handle the withdrawal approval
+    function handleWithdrawalApproval() {
+        showApprovalModal = true;
+        isProcessing = true;
+        handleWithdraw();
+    }
 </script>
 
 {#if showWithdrawModal}
@@ -469,64 +591,77 @@
                     </div>
                 </div>
 
-                <!-- Balance -->
-                <div class="bg-gray-50 rounded-lg p-3 space-y-0.5">
-                    <div class="text-xs font-medium text-gray-500">Available Balance</div>
-                    <div class="text-lg font-semibold">0 {selectedCrypto.symbol}</div>
-                    <div class="text-xs text-gray-500">≈ $0.00</div>
-                </div>
-
-                <!-- Address Input -->
-                <div class="space-y-2">
+                <!-- Available Balance -->
+                <div class="bg-gray-50 rounded-lg p-4">
                     <div class="flex items-center justify-between">
-                        <div class="text-sm font-medium text-gray-700">Withdrawal Address</div>
-                        <div class="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-500">
-                            Network: {selectedNetwork}
+                        <span class="text-gray-600">Available Balance</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg font-semibold text-gray-900">
+                                {totalBalance[selectedCrypto.symbol.toLowerCase()] ?? 0} {selectedCrypto.symbol}
+                            </span>
+                            <span class="text-sm text-gray-500">
+                                ≈ ${((totalBalance[selectedCrypto.symbol.toLowerCase()] ?? 0) * 1).toFixed(2)}
+                            </span>
                         </div>
                     </div>
-                    <input 
-                        type="text"
-                        bind:value={withdrawAddress}
-                        placeholder="Enter withdrawal address"
-                        class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono
-                               focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
-                    >
                 </div>
 
                 <!-- Amount Input -->
-                <div class="space-y-2">
-                    <label class="text-sm font-medium text-gray-700">Amount</label>
-                    <div class="relative">
-                        <input 
-                            type="text"
-                            bind:value={withdrawAmount}
-                            placeholder="0.00"
-                            class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm
-                                   focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
-                        >
-                        <button 
-                            class="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-sm text-blue-600 
-                                   hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                            Max
-                        </button>
+                <div class="space-y-4">
+                    <div>
+                        <label for="withdrawAmount" class="block text-sm font-medium text-gray-700 mb-1">
+                            USDT Amount
+                        </label>
+                        <div class="relative">
+                            <input
+                                type="number"
+                                id="withdrawAmount"
+                                bind:value={withdrawAmount}
+                                class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                placeholder="Enter USDT amount"
+                                min="1"
+                                step="any"
+                            />
+                            <button 
+                                type="button"
+                                class="absolute right-3 top-2 text-sm text-blue-600 hover:text-blue-700"
+                                on:click={() => {
+                                    const maxAmount = $session.user?.wallet?.totalBalance?.USDT || 0;
+                                    withdrawAmount = maxAmount.toString();
+                                }}
+                            >
+                                MAX
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Available: {$session.user?.wallet?.totalBalance?.USDT || 0} USDT
+                        </p>
                     </div>
-                </div>
 
-                <!-- Fee Info -->
-                <div class="flex items-center justify-between text-sm p-3 bg-gray-50 rounded-lg">
-                    <span class="text-gray-500">Network Fee</span>
-                    <span class="font-medium">0.00011 {selectedCrypto.symbol}</span>
-                </div>
+                    <!-- TRC20 Address Input -->
+                    <div>
+                        <label for="withdrawAddress" class="block text-sm font-medium text-gray-700 mb-1">
+                            TRC20 Address
+                        </label>
+                        <input
+                            type="text"
+                            id="withdrawAddress"
+                            bind:value={withdrawAddress}
+                            class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                            placeholder="Enter TRC20 address (starts with T)"
+                        />
+                    </div>
 
-                <!-- Submit Button -->
-                <button 
-                    class="w-full py-3 bg-blue-600 text-white rounded-lg font-medium
-                           hover:bg-blue-700 transition-colors"
-                    on:click={handleWithdraw}
-                >
-                    Withdraw {selectedCrypto.symbol}
-                </button>
+                    <!-- Submit Button -->
+                    <button
+                        type="button"
+                        class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        on:click={handleWithdraw}
+                        disabled={!withdrawAmount || !withdrawAddress}
+                    >
+                        Submit Withdrawal
+                    </button>
+                </div>
 
                 <!-- Withdrawal Info -->
                 <div class="text-xs text-gray-500 text-center">
@@ -538,10 +673,13 @@
 {/if}
 
 {#if showDepositModal}
-    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl w-full max-w-[380px] shadow-xl" 
-             in:fade={{ duration: 150 }}
-             out:fade={{ duration: 100 }}>
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4"
+         transition:fade
+         on:click|self={closeDepositModal}>
+        <!-- Only adding h-[350px] and overflow-y-auto -->
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg h-[700px] overflow-y-auto transform transition-all"
+             in:fly="{{ y: 20, duration: 200 }}"
+             out:fade>
             <!-- Header -->
             <div class="flex items-center justify-between p-4 border-b border-gray-100">
                 <h2 class="text-xl font-semibold text-gray-900">Deposit Crypto</h2>
@@ -777,11 +915,11 @@
                         <div class="bg-white rounded-lg border border-gray-200 p-3">
                             <div class="flex items-center gap-3">
                                 <div class="flex-1 font-mono text-sm bg-gray-50 p-3 rounded-lg break-all">
-                                    {USDT_ADDRESS}
+                                    {USDT_DEPOSIT_ADDRESS}
                                 </div>
                                 <button 
                                     class="p-2 hover:bg-gray-100 rounded-lg transition-colors relative group"
-                                    on:click={() => copyToClipboard(USDT_ADDRESS)}
+                                    on:click={() => copyToClipboard(USDT_DEPOSIT_ADDRESS)}
                                 >
                                     {#if copySuccess}
                                         <div 
@@ -817,7 +955,7 @@
                         <div class="flex flex-col items-center gap-2 py-2">
                             <div class="w-32 h-32 bg-white border border-gray-200 rounded-lg p-3">
                                 <img 
-                                    src="/images/QRcode/usdt.jpg" 
+                                    src="/images/QRcode/qrusdt.jpeg" 
                                     alt="USDT Deposit QR Code"
                                     class="w-full h-full object-contain"
                                 />
@@ -847,6 +985,124 @@
     </div>
 {/if}
 
+<!-- Withdrawal Approval Modal -->
+{#if showApprovalModal}
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl w-full max-w-md shadow-xl" transition:fade>
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-5 border-b border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    Confirm Withdrawal
+                </h3>
+                <button 
+                    class="text-gray-400 hover:text-gray-500 transition-colors"
+                    on:click={() => showApprovalModal = false}
+                >
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-5 space-y-5">
+                <!-- Withdrawal Details -->
+                <div class="space-y-4">
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <div class="flex items-center gap-3 text-blue-700">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="font-medium">Withdrawal Details</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <span class="text-sm text-gray-500">Amount</span>
+                            <div class="font-medium text-gray-900">
+                                {withdrawAmount} {selectedCrypto.symbol}
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="text-sm text-gray-500">Network</span>
+                            <div class="font-medium text-gray-900">
+                                {selectedNetwork}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-1">
+                        <span class="text-sm text-gray-500">Withdrawal Address</span>
+                        <div class="font-mono text-sm bg-gray-50 p-3 rounded-lg break-all">
+                            {withdrawAddress}
+                        </div>
+                    </div>
+
+                    <!-- Fee Information -->
+                    <div class="border-t border-gray-100 pt-4">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-gray-500">Network Fee</span>
+                            <span class="font-medium text-gray-900">
+                                {networkFee} {selectedCrypto.symbol}
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm mt-2">
+                            <span class="text-gray-500">You will receive</span>
+                            <span class="font-medium text-gray-900">
+                                {(Number(withdrawAmount) - networkFee).toFixed(8)} {selectedCrypto.symbol}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Warning -->
+                    <div class="bg-yellow-50 border border-yellow-100 rounded-lg p-4">
+                        <div class="flex gap-3">
+                            <svg class="w-5 h-5 text-yellow-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                            <div class="text-sm text-yellow-700">
+                                <p class="font-medium mb-1">Please verify:</p>
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li>The withdrawal address is correct</li>
+                                    <li>You've selected the right network</li>
+                                    <li>The amount is correct</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-5 border-t border-gray-100">
+                <div class="flex items-center justify-end gap-3">
+                    <button 
+                        class="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        on:click={() => showApprovalModal = false}
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
+                               transition-colors flex items-center gap-2"
+                        on:click={handleWithdraw}
+                    >
+                        {#if isProcessing}
+                            <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Processing...
+                        {:else}
+                            Confirm Withdrawal
+                        {/if}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+{/if}
+
 <div class="max-w-7xl mx-auto p-8 space-y-8">
     <!-- Header Section -->
     <div class="flex items-center justify-between">
@@ -870,30 +1126,36 @@
 
     <!-- Total Balance Card -->
     <div class="balance-card">
-        <div class="flex items-start justify-between">
-            <div>
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">Total Balance</h2>
-                <div class="flex items-baseline gap-2">
-                    <span class="text-4xl font-bold tracking-tight">{totalBalance.usdt}</span>
-                    <div class="flex items-center gap-2">
-                        <span class="px-3 py-1 bg-[#26A17B] text-white rounded-full text-sm font-medium">USDT</span>
-                        <span class="text-green-500 text-sm font-medium">{totalBalance.change}</span>
-                    </div>
+        <div class="flex flex-col">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-1">
+                    <span class="bg-green-100 text-green-600 text-[9px] sm:text-xs px-1.5 py-0.5 rounded">USDT</span>
+                    <span class="text-sm text-gray-500">Total Balance</span>
                 </div>
-                <div class="text-lg text-gray-500 mt-1">{totalBalance.usd.toFixed(2)} USD</div>
+                <span class="text-xs text-green-500">{totalBalance.change}</span>
             </div>
-            <div class="flex gap-3">
-                <button class="btn-primary" on:click={openWithdrawModal}>
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            <div class="text-xl sm:text-2xl font-semibold mb-1">${totalBalance.usd.toFixed(2)}</div>
+            <div class="text-sm text-gray-500">{totalBalance.usdt.toFixed(2)} USDT</div>
+            
+            <!-- Updated mobile-responsive buttons -->
+            <div class="grid grid-cols-2 sm:flex gap-2 sm:gap-4 mt-4">
+                <button 
+                    class="btn-primary h-[44px] sm:h-auto w-full sm:w-auto text-sm sm:text-base flex items-center justify-center px-3 sm:px-6" 
+                    on:click={() => showDepositModal = true}
+                >
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    Withdraw
+                    <span>Deposit</span>
                 </button>
-                <button class="btn-secondary" on:click={openDepositModal}>
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
+                <button 
+                    class="btn-primary h-[44px] sm:h-auto w-full sm:w-auto text-sm sm:text-base flex items-center justify-center px-3 sm:px-6" 
+                    on:click={openWithdrawModal}
+                >
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    Deposit
+                    <span>Withdraw</span>
                 </button>
             </div>
         </div>
@@ -903,21 +1165,24 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Asset Balance Card -->
         <div class="balance-card hover:scale-[1.02] transition-transform">
-            <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-xl bg-[#3772FF]/10 flex items-center justify-center">
-                    <svg class="w-6 h-6 text-[#3772FF]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <div class="flex items-center gap-2 sm:gap-4">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#3772FF]/10 flex items-center justify-center">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6 text-[#3772FF]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                               d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 </div>
                 <div class="flex-1">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-lg font-medium text-gray-800">Asset Balance</h3>
-                        <span class="text-green-500 text-sm font-medium">{assetBalance.change}</span>
+                        <h3 class="text-sm sm:text-lg font-medium text-gray-800">Asset Balance</h3>
+                        <div class="flex items-center gap-1">
+                            <span class="bg-green-100 text-green-600 text-[9px] sm:text-xs px-1.5 py-0.5 rounded">USDT</span>
+                            <span class="text-xs sm:text-sm font-medium text-green-500">{assetBalance.change}</span>
+                        </div>
                     </div>
                     <div class="flex items-center gap-2 mt-1">
-                        <span class="font-semibold">{assetBalance.usdt} USDT</span>
-                        <span class="text-gray-500">{assetBalance.usd.toFixed(2)} USD</span>
+                        <span class="text-sm sm:text-base font-semibold">{assetBalance.usdt} USDT</span>
+                        <span class="text-xs sm:text-sm text-gray-500">{assetBalance.usd.toFixed(2)} USD</span>
                     </div>
                 </div>
             </div>
@@ -935,7 +1200,10 @@
                 <div class="flex-1">
                     <div class="flex items-center justify-between">
                         <h3 class="text-lg font-medium text-gray-800">Exchange Balance</h3>
-                        <span class="text-green-500 text-sm font-medium">{exchangeBalance.change}</span>
+                        <div class="flex items-center gap-1">
+                            <span class="bg-green-100 text-green-600 text-[9px] sm:text-xs px-1.5 py-0.5 rounded">USDT</span>
+                            <span class="text-xs sm:text-sm font-medium text-green-500">{exchangeBalance.change}</span>
+                        </div>
                     </div>
                     <div class="flex items-center gap-2 mt-1">
                         <span class="font-semibold">{exchangeBalance.usdt} USDT</span>
@@ -946,13 +1214,19 @@
         </div>
     </div>
 
-    <!-- Add the deposits table after the Asset Balances table -->
     <!-- Recent Deposits -->
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-        <div class="p-6 border-b border-gray-100">
-            <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold text-gray-800">Recent Deposits</h2>
-                <button class="btn-secondary" on:click={fetchDeposits}>
+    <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">Recent Deposits</h3>
+                <p class="text-sm text-gray-500 mt-1">Your deposit history</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button 
+                    class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 
+                           flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+                    on:click={fetchDeposits}
+                >
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                               d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -962,85 +1236,121 @@
             </div>
         </div>
 
-        <table class="w-full">
-            <thead>
-                <tr class="border-b border-gray-100">
-                    <th class="text-left py-4 px-6 text-sm font-medium text-gray-500">DATE</th>
-                    <th class="text-left py-4 px-6 text-sm font-medium text-gray-500">AMOUNT</th>
-                    <th class="text-left py-4 px-6 text-sm font-medium text-gray-500">CURRENCY</th>
-                    <th class="text-left py-4 px-6 text-sm font-medium text-gray-500">STATUS</th>
-                    <th class="text-left py-4 px-6 text-sm font-medium text-gray-500">ADDRESS</th>
-                </tr>
-            </thead>
-            <tbody>
-                {#if isLoadingDeposits}
-                    <tr>
-                        <td colspan="5" class="py-8 text-center text-gray-500">
-                            Loading deposits...
-                        </td>
-                    </tr>
-                {:else if deposits.length === 0}
-                    <tr>
-                        <td colspan="5" class="py-16">
-                            <div class="flex flex-col items-center justify-center text-gray-400">
-                                <svg class="w-16 h-16 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
-                                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-gray-100">
+                        <th class="px-6 py-3 text-left">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Date</span>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
                                 </svg>
-                                <span class="text-lg">No deposits yet</span>
                             </div>
-                        </td>
+                        </th>
+                        <th class="px-6 py-3 text-left">
+                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</span>
+                        </th>
+                        <th class="px-6 py-3 text-left">
+                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Currency</span>
+                        </th>
+                        <th class="px-6 py-3 text-left">
+                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Status</span>
+                        </th>
+                        <th class="px-6 py-3 text-left">
+                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">USDT Address</span>
+                        </th>
                     </tr>
-                {:else}
-                    {#each deposits as deposit}
-                        <tr class="hover:bg-gray-50 transition-colors">
-                            <td class="py-4 px-6">
-                                {new Date(deposit.createdAt).toLocaleString()}
-                            </td>
-                            <td class="py-4 px-6 font-medium">
-                                {deposit.amount}
-                            </td>
-                            <td class="py-4 px-6">
-                                {deposit.currency.toUpperCase()}
-                            </td>
-                            <td class="py-4 px-6">
-                                <span class="px-2 py-1 text-sm rounded-full
-                                    {deposit.status === 'approved' ? 'bg-green-100 text-green-700' : 
-                                     deposit.status === 'rejected' ? 'bg-red-100 text-red-700' : 
-                                     'bg-yellow-100 text-yellow-700'}">
-                                    {deposit.status}
-                                </span>
-                            </td>
-                            <td class="py-4 px-6">
-                                <div class="flex items-center gap-2">
-                                    <span class="font-mono text-sm truncate max-w-[120px]">
-                                        {USDT_DEPOSIT_ADDRESS}
-                                    </span>
-                                    <button 
-                                        class="p-1 hover:bg-gray-100 rounded"
-                                        on:click={() => copyToClipboard(USDT_DEPOSIT_ADDRESS)}
-                                    >
-                                        <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                                  d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-2M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                        </svg>
-                                    </button>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {#if isLoadingDeposits}
+                        <tr>
+                            <td colspan="5" class="py-8">
+                                <div class="flex justify-center">
+                                    <div class="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent"></div>
                                 </div>
                             </td>
                         </tr>
-                    {/each}
-                {/if}
-            </tbody>
-        </table>
+                    {:else if deposits.length === 0}
+                        <tr>
+                            <td colspan="5" class="py-16">
+                                <div class="flex flex-col items-center justify-center text-gray-400">
+                                    <svg class="w-16 h-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                    </svg>
+                                    <span class="text-lg">No deposits yet</span>
+                                </div>
+                            </td>
+                        </tr>
+                    {:else}
+                        {#each deposits as deposit}
+                            <tr class="hover:bg-gray-50/50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">
+                                        {new Date(deposit.createdAt).toLocaleDateString()}
+                                    </div>
+                                    <div class="text-xs text-gray-500">
+                                        {new Date(deposit.createdAt).toLocaleTimeString()}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">
+                                        {deposit.amount} {deposit.currency.toUpperCase()}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                        {deposit.currency.toUpperCase()}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 py-1 text-sm rounded-full
+                                        {deposit.status === 'approved' ? 'bg-green-100 text-green-700' : 
+                                         deposit.status === 'rejected' ? 'bg-red-100 text-red-700' : 
+                                         'bg-yellow-100 text-yellow-700'}">
+                                        {deposit.status}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono text-sm text-gray-900 truncate max-w-[120px]">
+                                            {deposit.txHash || '-'}
+                                        </span>
+                                        {#if deposit.txHash}
+                                            <button 
+                                                class="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                                on:click={() => copyToClipboard(deposit.txHash)}
+                                            >
+                                                <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                          d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-2M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                                </svg>
+                                            </button>
+                                        {/if}
+                                    </div>
+                                </td>
+                            </tr>
+                        {/each}
+                    {/if}
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <!-- Add the withdrawals table after the deposits table -->
     <!-- Recent Withdrawals -->
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 mt-6">
-        <div class="p-6 border-b border-gray-100">
-            <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold text-gray-800">Recent Withdrawals</h2>
-                <button class="btn-secondary" on:click={fetchWithdrawals}>
+    <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow mt-8">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">Recent Withdrawals</h3>
+                <p class="text-sm text-gray-500 mt-1">Your withdrawal history</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button 
+                    class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 
+                           flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+                    on:click={fetchWithdrawals}
+                >
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                               d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1050,76 +1360,106 @@
             </div>
         </div>
 
-        <table class="w-full">
-            <thead>
-                <tr class="border-b border-gray-100">
-                    <th class="text-left py-4 px-6 text-sm font-medium text-gray-500">DATE</th>
-                    <th class="text-left py-4 px-6 text-sm font-medium text-gray-500">AMOUNT</th>
-                    <th class="text-left py-4 px-6 text-sm font-medium text-gray-500">CURRENCY</th>
-                    <th class="text-left py-4 px-6 text-sm font-medium text-gray-500">STATUS</th>
-                    <th class="text-left py-4 px-6 text-sm font-medium text-gray-500">ADDRESS</th>
-                </tr>
-            </thead>
-            <tbody>
-                {#if isLoadingWithdrawals}
-                    <tr>
-                        <td colspan="5" class="py-8 text-center text-gray-500">
-                            Loading withdrawals...
-                        </td>
-                    </tr>
-                {:else if withdrawals.length === 0}
-                    <tr>
-                        <td colspan="5" class="py-16">
-                            <div class="flex flex-col items-center justify-center text-gray-400">
-                                <svg class="w-16 h-16 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
-                                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-gray-100">
+                        <th class="px-6 py-3 text-left">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Date</span>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
                                 </svg>
-                                <span class="text-lg">No withdrawals yet</span>
                             </div>
-                        </td>
+                        </th>
+                        <th class="px-6 py-3 text-left">
+                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</span>
+                        </th>
+                        <th class="px-6 py-3 text-left">
+                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Currency</span>
+                        </th>
+                        <th class="px-6 py-3 text-left">
+                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Status</span>
+                        </th>
+                        <th class="px-6 py-3 text-left">
+                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">USDT Address</span>
+                        </th>
                     </tr>
-                {:else}
-                    {#each withdrawals as withdrawal}
-                        <tr class="hover:bg-gray-50 transition-colors">
-                            <td class="py-4 px-6">
-                                {new Date(withdrawal.createdAt).toLocaleString()}
-                            </td>
-                            <td class="py-4 px-6 font-medium">
-                                {withdrawal.amount}
-                            </td>
-                            <td class="py-4 px-6">
-                                {withdrawal.currency.toUpperCase()}
-                            </td>
-                            <td class="py-4 px-6">
-                                <span class="px-2 py-1 text-sm rounded-full
-                                    {withdrawal.status === 'approved' ? 'bg-green-100 text-green-700' : 
-                                     withdrawal.status === 'rejected' ? 'bg-red-100 text-red-700' : 
-                                     'bg-yellow-100 text-yellow-700'}">
-                                    {withdrawal.status}
-                                </span>
-                            </td>
-                            <td class="py-4 px-6">
-                                <div class="flex items-center gap-2">
-                                    <span class="font-mono text-sm truncate max-w-[120px]">
-                                        {withdrawal.withdrawalAddress}
-                                    </span>
-                                    <button 
-                                        class="p-1 hover:bg-gray-100 rounded"
-                                        on:click={() => copyToClipboard(withdrawal.withdrawalAddress)}
-                                    >
-                                        <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                                  d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-2M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                        </svg>
-                                    </button>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {#if isLoadingWithdrawals}
+                        <tr>
+                            <td colspan="5" class="py-8">
+                                <div class="flex justify-center">
+                                    <div class="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent"></div>
                                 </div>
                             </td>
                         </tr>
-                    {/each}
-                {/if}
-            </tbody>
-        </table>
+                    {:else if withdrawals.length === 0}
+                        <tr>
+                            <td colspan="5" class="py-16">
+                                <div class="flex flex-col items-center justify-center text-gray-400">
+                                    <svg class="w-16 h-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                    </svg>
+                                    <span class="text-lg">No withdrawals yet</span>
+                                </div>
+                            </td>
+                        </tr>
+                    {:else}
+                        {#each withdrawals as withdrawal}
+                            <tr class="hover:bg-gray-50/50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">
+                                        {new Date(withdrawal.createdAt).toLocaleDateString()}
+                                    </div>
+                                    <div class="text-xs text-gray-500">
+                                        {new Date(withdrawal.createdAt).toLocaleTimeString()}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">
+                                        {withdrawal.amount} {withdrawal.currency.toUpperCase()}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                        {withdrawal.currency.toUpperCase()}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 py-1 text-sm rounded-full
+                                        {withdrawal.status === 'approved' ? 'bg-green-100 text-green-700' : 
+                                         withdrawal.status === 'rejected' ? 'bg-red-100 text-red-700' : 
+                                         'bg-yellow-100 text-yellow-700'}">
+                                        {withdrawal.status}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono text-sm text-gray-900 truncate max-w-[120px]">
+                                            {withdrawal.withdrawalAddress || '-'}
+                                        </span>
+                                        {#if withdrawal.withdrawalAddress}
+                                            <button 
+                                                class="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                                on:click={() => copyToClipboard(withdrawal.withdrawalAddress)}
+                                            >
+                                                <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                          d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-2M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                                </svg>
+                                            </button>
+                                        {/if}
+                                    </div>
+                                </td>
+                            </tr>
+                        {/each}
+                    {/if}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -1176,5 +1516,310 @@
 
     tr:hover td {
         @apply bg-gray-50;
+    }
+
+    /* Comprehensive mobile styles */
+    @media screen and (max-width: 640px) {
+        /* Main container */
+        :global(.max-w-7xl) {
+            padding: 12px !important;
+        }
+
+        /* Balance cards */
+        :global(.grid-cols-3) {
+            grid-template-columns: 1fr !important;
+        }
+
+        :global(.balance-card) {
+            background: white !important;
+            border-radius: 16px !important;
+            padding: 20px !important;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
+        }
+
+        /* Card content */
+        :global(.balance-card > div) {
+            gap: 12px !important;
+        }
+
+        :global(.balance-card .text-2xl) {
+            font-size: 24px !important;
+            line-height: 1.2 !important;
+            margin-bottom: 4px !important;
+        }
+
+        :global(.balance-card .text-sm) {
+            font-size: 14px !important;
+            color: #666 !important;
+        }
+
+        /* Card buttons */
+        :global(.balance-card > div > div:last-child) {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 10px !important;
+            margin-top: 16px !important;
+            width: 100% !important;
+        }
+
+        :global(.balance-card .btn-primary) {
+            height: 44px !important;
+            padding: 8px 12px !important;
+            font-size: 14px !important;
+            border-radius: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-weight: 500 !important;
+            width: 100% !important;
+        }
+
+        :global(.balance-card .btn-primary svg) {
+            width: 16px !important;
+            height: 16px !important;
+            margin-right: 6px !important;
+        }
+
+        /* Recent transactions section */
+        :global(.recent-withdrawals) {
+            margin-top: 24px !important;
+            background: white !important;
+            border-radius: 16px !important;
+            padding: 20px !important;
+        }
+
+        :global(.recent-withdrawals h3) {
+            font-size: 20px !important;
+            margin-bottom: 16px !important;
+        }
+
+        /* Table adjustments */
+        :global(.table-container) {
+            margin: 0 -20px !important;
+            padding: 0 !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+        }
+
+        :global(table) {
+            width: 100% !important;
+            min-width: 600px !important;
+        }
+
+        :global(th) {
+            background: #f8f9fa !important;
+            padding: 12px 16px !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            color: #666 !important;
+            text-align: left !important;
+        }
+
+        :global(td) {
+            padding: 16px !important;
+            font-size: 14px !important;
+            vertical-align: middle !important;
+        }
+
+        /* Status badges */
+        :global(.status-badge) {
+            padding: 6px 12px !important;
+            border-radius: 20px !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+        }
+
+        /* Modal improvements */
+        :global(.modal-overlay) {
+            padding: 16px !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+        }
+
+        :global(.modal-content) {
+            width: 100% !important;
+            max-width: none !important;
+            border-radius: 16px !important;
+            padding: 24px !important;
+        }
+
+        :global(.modal-header) {
+            margin-bottom: 20px !important;
+        }
+
+        :global(.modal-header h3) {
+            font-size: 20px !important;
+        }
+
+        :global(.modal input, .modal select) {
+            height: 48px !important;
+            border-radius: 12px !important;
+            padding: 0 16px !important;
+            font-size: 15px !important;
+            border: 1px solid #e2e8f0 !important;
+        }
+
+        :global(.modal button) {
+            height: 48px !important;
+            border-radius: 12px !important;
+            font-size: 15px !important;
+            font-weight: 500 !important;
+        }
+    }
+
+    /* Touch optimizations */
+    @media (hover: none) {
+        :global(button) {
+            -webkit-tap-highlight-color: transparent !important;
+        }
+
+        :global(button:active) {
+            transform: scale(0.98) !important;
+            opacity: 0.9 !important;
+        }
+
+        :global(input, select) {
+            font-size: 16px !important; /* Prevents zoom on iOS */
+        }
+
+        :global(.balance-card .btn-primary:active) {
+            transform: scale(0.98) !important;
+            opacity: 0.9 !important;
+        }
+    }
+
+    /* Add mobile-specific styles for Asset and Exchange Balance cards */
+    @media screen and (max-width: 640px) {
+        /* Make cards stack in single column */
+        :global(.grid-cols-3) {
+            grid-template-columns: 1fr !important;
+            gap: 16px !important;
+        }
+
+        /* Asset and Exchange Balance cards */
+        :global(.balance-card:nth-child(2), .balance-card:nth-child(3)) {
+            padding: 20px !important;
+            border-radius: 16px !important;
+            background: white !important;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
+            margin-bottom: 0 !important;
+        }
+
+        /* Card content */
+        :global(.balance-card:nth-child(2) .text-2xl, .balance-card:nth-child(3) .text-2xl) {
+            font-size: 22px !important;
+            line-height: 1.2 !important;
+            margin-bottom: 4px !important;
+        }
+
+        :global(.balance-card:nth-child(2) .text-sm, .balance-card:nth-child(3) .text-sm) {
+            font-size: 13px !important;
+            color: #666 !important;
+        }
+
+        /* Card buttons */
+        :global(.balance-card:nth-child(2) > div > div:last-child, 
+                .balance-card:nth-child(3) > div > div:last-child) {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 10px !important;
+            margin-top: 16px !important;
+            width: 100% !important;
+        }
+
+        :global(.balance-card:nth-child(2) .btn-primary, 
+                .balance-card:nth-child(3) .btn-primary) {
+            height: 44px !important;
+            padding: 8px 12px !important;
+            font-size: 14px !important;
+            border-radius: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-weight: 500 !important;
+            width: 100% !important;
+        }
+
+        :global(.balance-card:nth-child(2) .btn-primary svg, 
+                .balance-card:nth-child(3) .btn-primary svg) {
+            width: 16px !important;
+            height: 16px !important;
+            margin-right: 6px !important;
+        }
+    }
+
+    /* Touch optimizations for Asset and Exchange cards */
+    @media (hover: none) {
+        :global(.balance-card:nth-child(2) .btn-primary:active,
+                .balance-card:nth-child(3) .btn-primary:active) {
+            transform: scale(0.98) !important;
+            opacity: 0.9 !important;
+        }
+    }
+
+    /* Only adjust text sizes for Asset and Exchange Balance cards on mobile */
+    @media screen and (max-width: 640px) {
+        /* Target specifically the Asset and Exchange Balance card text */
+        :global(.balance-card:nth-child(2) .text-2xl, 
+                .balance-card:nth-child(3) .text-2xl) {
+            font-size: 18px !important;
+            line-height: 1.2 !important;
+        }
+
+        :global(.balance-card:nth-child(2) .text-sm, 
+                .balance-card:nth-child(3) .text-sm) {
+            font-size: 12px !important;
+            color: #666 !important;
+        }
+
+        :global(.balance-card:nth-child(2) .text-gray-500, 
+                .balance-card:nth-child(3) .text-gray-500) {
+            font-size: 11px !important;
+        }
+    }
+
+    /* Make font sizes smaller for Asset and Exchange Balance cards on mobile */
+    @media screen and (max-width: 640px) {
+        /* Make balance amounts much smaller */
+        :global(.balance-card:nth-child(2) .text-2xl, 
+                .balance-card:nth-child(3) .text-2xl) {
+            font-size: 16px !important;
+            line-height: 1.2 !important;
+        }
+
+        /* Make USDT amount smaller */
+        :global(.balance-card:nth-child(2) .text-sm, 
+                .balance-card:nth-child(3) .text-sm) {
+            font-size: 10px !important;
+            color: #666 !important;
+        }
+
+        /* Make "Asset Balance" and "Exchange Balance" labels smaller */
+        :global(.balance-card:nth-child(2) .text-gray-500, 
+                .balance-card:nth-child(3) .text-gray-500) {
+            font-size: 9px !important;
+        }
+    }
+
+    /* Add mobile-specific styles */
+    @media screen and (max-width: 640px) {
+        :global(.balance-card:nth-child(2)) {
+            padding: 12px !important;
+        }
+
+        :global(.balance-card:nth-child(2) h3) {
+            font-size: 13px !important;
+        }
+
+        :global(.balance-card:nth-child(2) .font-semibold) {
+            font-size: 14px !important;
+        }
+
+        :global(.balance-card:nth-child(2) .text-gray-500) {
+            font-size: 11px !important;
+        }
+
+        :global(.balance-card:nth-child(2) .text-green-500) {
+            font-size: 10px !important;
+        }
     }
 </style>

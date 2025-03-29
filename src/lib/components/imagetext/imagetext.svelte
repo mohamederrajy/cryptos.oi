@@ -11,7 +11,7 @@
     };
 </script>
 
-<section class="relative py-24 bg-[#F8FAFC] overflow-hidden">
+<section class="relative py-12 lg:py-24 bg-[#F8FAFC] overflow-hidden">
     <!-- Background Elements -->
     <div class="absolute inset-0">
         <div class="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-br from-blue-50/40 to-purple-50/40 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
@@ -19,10 +19,10 @@
     </div>
 
     <div class="container mx-auto px-4 relative">
-        <div class="flex flex-wrap items-center">
+        <div class="flex flex-col lg:flex-row items-center">
             <!-- Left Content -->
-            <div class="w-full lg:w-1/2 pr-0 lg:pr-16 mb-12 lg:mb-0" in:fly={{ x: -50, duration: 1000 }}>
-                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-600 font-medium mb-6">
+            <div class="w-full lg:w-1/2 lg:pr-16 mb-8 lg:mb-0 text-center lg:text-left" in:fly={{ x: -50, duration: 1000 }}>
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-600 font-medium mb-4 lg:mb-6">
                     <span class="relative flex h-2 w-2">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
@@ -30,7 +30,7 @@
                     COMING MARCH 2025
                 </div>
 
-                <h2 class="text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+                <h2 class="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold mb-4 lg:mb-6 leading-tight">
                     Build your
                     <br />
                     <span class="bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
@@ -40,15 +40,15 @@
                     anywhere.
                 </h2>
 
-                <p class="text-gray-600 text-lg mb-8 max-w-lg">
+                <p class="text-gray-600 text-base lg:text-lg mb-6 lg:mb-8 max-w-lg mx-auto lg:mx-0">
                     A powerful cryptocurrency exchange in your pocket.
                     Buy, sell and trade crypto on the go.
                 </p>
 
                 <button 
-                    class="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-xl 
-                           hover:bg-blue-700 transition-all duration-200 font-medium
-                           shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 
+                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 lg:px-8 py-3 lg:py-4 
+                           bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 
+                           font-medium shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 
                            transform hover:-translate-y-0.5 active:translate-y-0"
                 >
                     <span>Get App</span>
@@ -60,14 +60,14 @@
             </div>
 
             <!-- Right Content -->
-            <div class="w-full lg:w-1/2" in:fly={{ x: 50, duration: 1000 }}>
-                <div class="relative">
+            <div class="w-full lg:w-1/2 mt-8 lg:mt-0" in:fly={{ x: 50, duration: 1000 }}>
+                <div class="relative px-4 lg:px-0">
                     <!-- Main Image -->
                     <div class="relative z-10">
                         <img 
                             src="/images/app-light.png" 
                             alt="Trading Platform"
-                            class="w-full h-auto"
+                            class="w-full h-auto max-w-[400px] mx-auto lg:max-w-none"
                         />
                     </div>
                 </div>

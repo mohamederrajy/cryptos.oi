@@ -289,13 +289,13 @@
         : cryptoData;
 </script>
 
-<section class="py-10">
+<section class="py-6 lg:py-10">
     <div class="container mx-auto px-4 max-w-7xl">
-        <!-- Filters -->
-        <div class="flex gap-6 mb-8 overflow-x-auto no-scrollbar">
+        <!-- Filters - Made scrollable on mobile -->
+        <div class="flex gap-3 lg:gap-6 mb-6 lg:mb-8 overflow-x-auto pb-2 no-scrollbar">
             {#each filters as filter}
                 <button
-                    class="px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap
+                    class="px-4 lg:px-6 py-2 rounded-full text-xs lg:text-sm font-medium transition-all duration-200 whitespace-nowrap
                            {selectedFilter === filter.id 
                              ? 'bg-[#3772FF]/10 text-[#3772FF]' 
                              : 'text-gray-500 hover:text-gray-700'}"
@@ -307,47 +307,49 @@
         </div>
 
         {#if isLoading}
-            <div class="text-center py-12">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-[#3772FF]"></div>
-                <p class="mt-4 text-gray-600">Loading cryptocurrency data...</p>
+            <div class="text-center py-8 lg:py-12">
+                <div class="inline-block animate-spin rounded-full h-6 w-6 lg:h-8 lg:w-8 border-4 border-gray-200 border-t-[#3772FF]"></div>
+                <p class="mt-3 lg:mt-4 text-sm lg:text-base text-gray-600">Loading cryptocurrency data...</p>
             </div>
         {:else if error}
-            <div class="text-center py-12">
-                <p class="text-red-500">Error: {error}</p>
+            <div class="text-center py-8 lg:py-12">
+                <p class="text-red-500 text-sm lg:text-base">Error: {error}</p>
                 <button 
-                    class="mt-4 px-4 py-2 bg-[#3772FF] text-white rounded-lg hover:bg-[#2952cc]"
+                    class="mt-3 lg:mt-4 px-4 py-2 text-sm lg:text-base bg-[#3772FF] text-white rounded-lg hover:bg-[#2952cc]"
                     on:click={fetchCryptoPrices}
                 >
                     Try Again
                 </button>
             </div>
         {:else}
-            <!-- Crypto Grid - Fixed to 2 rows of 4 -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Crypto Grid - Responsive layout -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
                 {#each cryptoData as crypto, index (crypto.id)}
-                    <div class="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-200">
-                        <div class="flex items-center gap-4 mb-4">
-                            <img src={crypto.image} alt={crypto.name} class="w-10 h-10">
+                    <div class="bg-white rounded-xl lg:rounded-2xl p-4 lg:p-6 shadow-sm hover:shadow-md transition-all duration-200">
+                        <!-- Crypto Header -->
+                        <div class="flex items-center gap-3 lg:gap-4 mb-3 lg:mb-4">
+                            <img src={crypto.image} alt={crypto.name} class="w-8 h-8 lg:w-10 lg:h-10">
                             <div>
-                                <h3 class="font-medium text-gray-900">{crypto.name}</h3>
-                                <span class="text-sm text-gray-500">{crypto.symbol}</span>
+                                <h3 class="font-medium text-sm lg:text-base text-gray-900">{crypto.name}</h3>
+                                <span class="text-xs lg:text-sm text-gray-500">{crypto.symbol}</span>
                             </div>
-                            <span class="ml-auto text-sm text-gray-400">24H</span>
+                            <span class="ml-auto text-xs lg:text-sm text-gray-400">24H</span>
                         </div>
 
-                        <div class="space-y-3">
+                        <!-- Price Info -->
+                        <div class="space-y-2 lg:space-y-3">
                             <div class="flex items-baseline justify-between">
-                                <span class="text-2xl font-bold text-gray-900">
+                                <span class="text-xl lg:text-2xl font-bold text-gray-900">
                                     ${crypto.current_price.toLocaleString(undefined, {
                                         minimumFractionDigits: 2,
                                         maximumFractionDigits: 8
                                     })}
                                 </span>
-                                <span class={`flex items-center gap-1 ${
+                                <span class={`flex items-center gap-1 text-sm lg:text-base ${
                                     crypto.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'
                                 }`}>
                                     <svg 
-                                        class="w-4 h-4" 
+                                        class="w-3 h-3 lg:w-4 lg:h-4" 
                                         viewBox="0 0 24 24"
                                         fill="none"
                                         stroke="currentColor"
@@ -359,8 +361,8 @@
                                 </span>
                             </div>
 
-                            <!-- Sparkline Chart -->
-                            <div class="w-full h-[60px] mt-4 relative group">
+                            <!-- Sparkline Chart - Adjusted height for mobile -->
+                            <div class="w-full h-[40px] lg:h-[60px] mt-3 lg:mt-4 relative group">
                                 {#if crypto.sparkline_in_7d?.price}
                                     <svg 
                                         width="100%" 
@@ -488,5 +490,40 @@
     /* Enhanced hover effects */
     .group:hover svg {
         transform: scale(1.02);
+    }
+
+    /* Enhanced responsive styles */
+    @media (max-width: 1024px) {
+        .grid {
+            gap: 12px;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .grid {
+            gap: 10px;
+        }
+    }
+
+    /* Improved hover effects for touch devices */
+    @media (hover: none) {
+        .group:hover svg {
+            transform: none;
+        }
+        
+        svg:hover {
+            transform: none;
+        }
+    }
+
+    /* Smoother animations on mobile */
+    @media (prefers-reduced-motion: reduce) {
+        .animate-ping {
+            animation: none;
+        }
+        
+        .transition-all {
+            transition: none;
+        }
     }
 </style>

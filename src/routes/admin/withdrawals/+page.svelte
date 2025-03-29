@@ -7,14 +7,16 @@
 
     // Update the Withdrawal interface to match the API response
     interface Withdrawal {
-        _id?: string;    // MongoDB style
-        id?: string;     // REST API style
+        _id: string;
+        id?: string;
         amount: number;
-        currency: string;
-        withdrawalAddress: string;
         networkFee: number;
+        currency: string;
         status: string;
+        withdrawalAddress: string;
         createdAt: string;
+        approvedAt?: string;
+        approvedBy?: string;
         user: {
             id: string;
             firstName: string;
@@ -27,8 +29,9 @@
     let pendingWithdrawals: Withdrawal[] = [];
     let isLoading = true;
     let selectedWithdrawal: Withdrawal | null = null;
-    let showConfirmModal = false;
-    let actionType: 'approve' | 'reject' = 'approve';
+    let showActionModal = false;
+    let actionType: 'approve' | 'cancel' = 'approve';
+    let isProcessing = false;
 
     async function fetchPendingWithdrawals() {
         isLoading = true;
@@ -66,35 +69,32 @@
     }
 
     // Update the openConfirmModal function with proper typing
-    function openConfirmModal(withdrawal: Withdrawal, type: 'approve' | 'reject') {
+    function openActionModal(withdrawal: Withdrawal, type: 'approve' | 'cancel') {
+        if (!withdrawal._id) {
+            notifications.error('Invalid withdrawal');
+            return;
+        }
         console.log('Opening modal for withdrawal:', withdrawal);
         selectedWithdrawal = withdrawal;
         actionType = type;
-        showConfirmModal = true;
+        showActionModal = true;
     }
 
     function closeConfirmModal() {
-        showConfirmModal = false;
+        showActionModal = false;
         selectedWithdrawal = null;
     }
 
-    // Update the handleAction function to use the new API
-    async function handleAction(type: 'approve' | 'reject') {
-        if (!selectedWithdrawal) return;
-
-        // Debug log to check the withdrawal ID
-        console.log('Selected withdrawal:', selectedWithdrawal);
-        console.log('Withdrawal ID:', selectedWithdrawal._id); // MongoDB usually uses _id
-
-        const withdrawalId = selectedWithdrawal._id || selectedWithdrawal.id;
-
-        if (!withdrawalId) {
+    // Update the handleAction function to use the correct API endpoint and method
+    async function handleAction(type: 'approve' | 'cancel') {
+        if (!selectedWithdrawal?._id) {
             notifications.error('Invalid withdrawal ID');
             return;
         }
-
+        
         try {
-            const response = await fetch(`${PUBLIC_API_URL}/api/withdrawal/${withdrawalId}/process`, {
+            isProcessing = true;
+            const response = await fetch(`${PUBLIC_API_URL}/api/withdrawal/${selectedWithdrawal._id}/process`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${$session.token}`,
@@ -102,23 +102,25 @@
                 },
                 body: JSON.stringify({
                     status: type === 'approve' ? 'approved' : 'rejected',
-                    reason: type === 'approve' ? 
-                        'Transaction verified' : 
-                        'Withdrawal request rejected by admin'
+                    ...(type === 'cancel' && { reason: 'Withdrawal request cancelled by admin' })
                 })
             });
 
             if (response.ok) {
-                notifications.success(`Withdrawal ${type === 'approve' ? 'approved' : 'rejected'} successfully`);
-                closeConfirmModal();
+                const result = await response.json();
+                notifications.success(result.message || `Withdrawal ${type}d successfully`);
                 await fetchPendingWithdrawals();
+                showActionModal = false;
+                selectedWithdrawal = null;
             } else {
                 const error = await response.json();
                 notifications.error(error.message || `Failed to ${type} withdrawal`);
             }
         } catch (error) {
             console.error(`Error ${type}ing withdrawal:`, error);
-            notifications.error(`Failed to ${type} withdrawal. Please try again.`);
+            notifications.error(`Failed to ${type} withdrawal`);
+        } finally {
+            isProcessing = false;
         }
     }
 
@@ -255,18 +257,16 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-right">
                                     <div class="flex items-center justify-end gap-2">
                                         <button 
-                                            class="px-3 py-1.5 text-sm font-medium text-green-700 bg-green-100 
-                                                   rounded-lg hover:bg-green-200 transition-colors"
-                                            on:click={() => openConfirmModal(withdrawal, 'approve')}
+                                            class="px-3 py-1.5 text-sm font-medium text-green-700 bg-green-100 rounded-lg hover:bg-green-200 transition-colors"
+                                            on:click={() => openActionModal(withdrawal, 'approve')}
                                         >
                                             Approve
                                         </button>
                                         <button 
-                                            class="px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 
-                                                   rounded-lg hover:bg-red-200 transition-colors"
-                                            on:click={() => openConfirmModal(withdrawal, 'reject')}
+                                            class="px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors"
+                                            on:click={() => openActionModal(withdrawal, 'cancel')}
                                         >
-                                            Reject
+                                            Cancel
                                         </button>
                                     </div>
                                 </td>
@@ -279,39 +279,93 @@
     </div>
 </div>
 
-<!-- Confirmation Modal -->
-{#if showConfirmModal}
-    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div 
-            class="bg-white rounded-xl w-full max-w-md shadow-xl"
-            in:fade={{ duration: 200 }}
-            out:fade={{ duration: 150 }}
-        >
-            <div class="p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                    Confirm {actionType === 'approve' ? 'Approval' : 'Rejection'}
+<!-- Approval/Cancel Modal -->
+{#if showActionModal && selectedWithdrawal}
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl w-full max-w-md" transition:fade>
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-5 border-b border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    {actionType === 'approve' ? 'Approve' : 'Cancel'} Withdrawal
                 </h3>
-                <p class="text-gray-600 mb-6">
-                    Are you sure you want to {actionType} this withdrawal request?
-                    <br><br>
-                    <span class="font-medium">Amount:</span> {selectedWithdrawal.amount} {selectedWithdrawal.currency.toUpperCase()}<br>
-                    <span class="font-medium">User:</span> {selectedWithdrawal.user.email}
-                </p>
+                <button 
+                    class="text-gray-400 hover:text-gray-500"
+                    on:click={() => showActionModal = false}
+                >
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-5 space-y-5">
+                <!-- Withdrawal Details -->
+                <div class="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">Amount</span>
+                        <span class="text-lg font-semibold text-gray-900">
+                            {selectedWithdrawal.amount} {selectedWithdrawal.currency.toUpperCase()}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">User</span>
+                        <span class="text-gray-900">{selectedWithdrawal.user.email}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">Wallet Address</span>
+                        <span class="font-mono text-sm text-gray-900 truncate max-w-[200px]">
+                            {selectedWithdrawal.withdrawalAddress}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">Date</span>
+                        <span class="text-gray-900">
+                            {new Date(selectedWithdrawal.createdAt).toLocaleString()}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Warning Message -->
+                <div class={`bg-${actionType === 'approve' ? 'blue' : 'red'}-50 border border-${actionType === 'approve' ? 'blue' : 'red'}-100 rounded-lg p-4`}>
+                    <div class="flex gap-3">
+                        <svg class={`w-5 h-5 text-${actionType === 'approve' ? 'blue' : 'red'}-600 flex-shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        <div class={`text-${actionType === 'approve' ? 'blue' : 'red'}-700`}>
+                            <p class="font-medium">Confirmation Required</p>
+                            <p class="text-sm mt-1">
+                                Are you sure you want to {actionType} this withdrawal request? 
+                                This action cannot be undone.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-5 border-t border-gray-100">
                 <div class="flex justify-end gap-3">
                     <button 
-                        class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                        on:click={closeConfirmModal}
+                        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                        on:click={() => showActionModal = false}
                     >
                         Cancel
                     </button>
                     <button 
-                        class="px-4 py-2 text-white rounded-lg transition-colors
-                               {actionType === 'approve' ? 
-                               'bg-green-600 hover:bg-green-700' : 
-                               'bg-red-600 hover:bg-red-700'}"
+                        class={`px-4 py-2 text-white rounded-lg transition-colors
+                            ${actionType === 'approve' 
+                                ? 'bg-blue-600 hover:bg-blue-700' 
+                                : 'bg-red-600 hover:bg-red-700'}`}
                         on:click={() => handleAction(actionType)}
+                        disabled={isProcessing}
                     >
-                        {actionType === 'approve' ? 'Approve' : 'Reject'}
+                        {#if isProcessing}
+                            <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        {:else}
+                            {actionType === 'approve' ? 'Approve' : 'Cancel'} Withdrawal
+                        {/if}
                     </button>
                 </div>
             </div>

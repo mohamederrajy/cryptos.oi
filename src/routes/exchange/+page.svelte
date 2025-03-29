@@ -3,12 +3,13 @@
     import { notifications } from '$lib/stores/notifications';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { session } from '$lib/stores/session';
+    import { fade } from 'svelte/transition';
 
     let isLoading = true;
     let updateInterval: any;
     let isDropdownOpen = false;
 
-    // Add these new variables for order form
+    // Form state
     let limitPrice: number | null = null;
     let amount: number | null = null;
     let total: number | null = null;
@@ -21,7 +22,129 @@
         total = limitPrice * amount;
     }
 
-    // Add this function to handle order placement
+    // Available pairs with icons
+    const tradingPairs = [
+        { 
+            symbol: 'BTC/USDT',
+            name: 'Bitcoin',
+            icon: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png'
+        },
+        { 
+            symbol: 'ETH/USDT',
+            name: 'Ethereum',
+            icon: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png'
+        },
+        { 
+            symbol: 'BNB/USDT',
+            name: 'BNB',
+            icon: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png'
+        },
+        { 
+            symbol: 'SOL/USDT',
+            name: 'Solana',
+            icon: 'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png'
+        }
+    ];
+
+    // Current pair info
+    let currentPair = {
+        symbol: 'BTC/USDT',
+        lastPrice: '104090.6829',
+        change: '-6.477',
+        low: '101266.41',
+        high: '111308.0694',
+        volume: '60,488,272.93'
+    };
+
+    // Order book data
+    let orderBookData = {
+        asks: [
+            { price: '113085.9231', amount: '0.01106', total: '1250.7303095' },
+            { price: '113085.912', amount: '0.0001', total: '11.3085912' },
+            { price: '113085.7122', amount: '0.00023', total: '26.0097138' },
+            { price: '113085.69', amount: '0.00902', total: '1020.0329238' },
+            { price: '113085.5124', amount: '0.00017', total: '19.2245371' }
+        ],
+        bids: [
+            { price: '113080.584', amount: '0.03925', total: '4438.412922' },
+            { price: '113081.3277', amount: '1.14037', total: '128954.5536692' },
+            { price: '113081.3832', amount: '0.00024', total: '27.139532' },
+            { price: '113081.5275', amount: '0.00012', total: '13.5697833' },
+            { price: '113082.249', amount: '6.83971', total: '773449.7893078' }
+        ]
+    };
+
+    let chartContainer: HTMLElement;
+    let widget: any;
+    let chartError: string | null = null;
+
+    async function initTradingView() {
+        try {
+            if (typeof window === 'undefined') return;
+
+            // Create container if it doesn't exist
+            let container = document.getElementById('tradingview_widget');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'tradingview_widget';
+                container.className = 'h-[600px] w-full';
+            }
+
+            // Wait for TradingView script to load
+            if (!(window as any).TradingView) {
+                const script = document.createElement('script');
+                script.type = 'text/javascript';
+                script.src = 'https://s3.tradingview.com/tv.js';
+                script.async = true;
+                
+                await new Promise((resolve, reject) => {
+                    script.onload = resolve;
+                    script.onerror = () => reject(new Error('Failed to load TradingView widget'));
+                    document.head.appendChild(script);
+                });
+            }
+
+            // Make sure we wait for the next tick and DOM update
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Initialize widget
+            widget = new (window as any).TradingView.widget({
+                container_id: 'tradingview_widget',
+                autosize: true,
+                symbol: "BINANCE:BTCUSDT",
+                interval: "D",
+                timezone: "exchange",
+                theme: "light",
+                style: "1",
+                toolbar_bg: "#f1f3f6",
+                withdateranges: true,
+                hide_side_toolbar: false,
+                allow_symbol_change: true,
+                save_image: false,
+                studies: ["Volume@tv-basicstudies"],
+                show_popup_button: false,
+                popup_width: "1000",
+                popup_height: "650",
+                locale: "en",
+                enable_publishing: false,
+                hide_top_toolbar: false,
+                hide_legend: false,
+                width: "100%",
+                height: "100%"
+            });
+
+            // Add onready handler
+            widget.onChartReady(() => {
+                isLoading = false;
+            });
+
+        } catch (error) {
+            console.error('TradingView initialization error:', error);
+            chartError = error instanceof Error ? error.message : 'Failed to load chart';
+            isLoading = false;
+        }
+    }
+
     async function handlePlaceOrder() {
         if (!limitPrice || !amount || !total) {
             notifications.error('Please fill in all fields');
@@ -48,7 +171,6 @@
 
             if (response.ok) {
                 notifications.success('Order placed successfully');
-                // Reset form
                 limitPrice = null;
                 amount = null;
                 total = null;
@@ -64,203 +186,89 @@
         }
     }
 
-    // Available pairs
-    const tradingPairs = [
-        { symbol: 'BTC/USDT', icon: '₿' },
-        { symbol: 'ETH/USDT', icon: 'Ξ' },
-        { symbol: 'BNB/USDT', icon: 'BNB' },
-        { symbol: 'SOL/USDT', icon: 'SOL' },
-        { symbol: 'XRP/USDT', icon: 'XRP' }
-    ];
-
-    // Current pair info
-    let currentPair = {
-        symbol: 'BTC/USDT',
-        lastPrice: '104090.6829',
-        change: '-6.477',
-        low: '101266.41',
-        high: '111308.0694',
-        volume: '60,488,272.93'
-    };
-
-    // Order book data with reactive binding
-    let orderBookData = {
-        asks: [
-            { price: '113085.9231', amount: '0.01106', total: '1250.7303095' },
-            { price: '113085.912', amount: '0.0001', total: '11.3085912' },
-            { price: '113085.7122', amount: '0.00023', total: '26.0097138' },
-            { price: '113085.69', amount: '0.00902', total: '1020.0329238' },
-            { price: '113085.5124', amount: '0.00017', total: '19.2245371' },
-            { price: '113085.4125', amount: '0.00012', total: '13.5702495' },
-            { price: '113085.2682', amount: '0.00751', total: '849.2703642' }
-        ],
-        bids: [
-            { price: '113080.584', amount: '0.03925', total: '4438.412922' },
-            { price: '113081.3277', amount: '1.14037', total: '128954.5536692' },
-            { price: '113081.3832', amount: '0.00024', total: '27.139532' },
-            { price: '113081.5275', amount: '0.00012', total: '13.5697833' },
-            { price: '113082.249', amount: '6.83971', total: '773449.7893078' },
-            { price: '113081.9382', amount: '0.00018', total: '20.3547489' },
-            { price: '113081.9493', amount: '0.00018', total: '20.3547509' }
-        ]
-    };
-
-    function toggleDropdown() {
-        isDropdownOpen = !isDropdownOpen;
-    }
-
-    function selectPair(pair: any) {
+    function selectPair(pair: typeof tradingPairs[0]) {
         currentPair.symbol = pair.symbol;
         isDropdownOpen = false;
-        // Here you would typically update other data based on the new pair
-    }
-
-    // Function to generate random trade data
-    function generateNewTrade() {
-        const basePrice = parseFloat(currentPair.lastPrice);
-        const randomChange = (Math.random() - 0.5) * 10;
-        const newPrice = (basePrice + randomChange).toFixed(4);
-        const amount = (Math.random() * 0.1).toFixed(6);
-        const total = (parseFloat(newPrice) * parseFloat(amount)).toFixed(7);
-
-        // Update current price
-        currentPair.lastPrice = newPrice;
-        
-        // Add to asks or bids based on price movement
-        if (randomChange > 0) {
-            orderBookData.asks = [
-                { price: newPrice, amount, total },
-                ...orderBookData.asks.slice(0, 6)
-            ];
-        } else {
-            orderBookData.bids = [
-                { price: newPrice, amount, total },
-                ...orderBookData.bids.slice(0, 6)
-            ];
-        }
-
-        // Force update
-        orderBookData = { ...orderBookData };
     }
 
     onMount(() => {
-        const loadTradingView = () => {
-            try {
-                new (window as any).TradingView.widget({
-                    "container_id": "tradingview_chart",
-                    "autosize": true,
-                    "symbol": "BINANCE:BTCUSDT",
-                    "interval": "D",
-                    "timezone": "exchange",
-                    "theme": "light",
-                    "style": "1",
-                    "toolbar_bg": "#f1f3f6",
-                    "withdateranges": true,
-                    "hide_side_toolbar": false,
-                    "allow_symbol_change": true,
-                    "save_image": false,
-                    "studies": [
-                        "Volume@tv-basicstudies"
-                    ],
-                    "show_popup_button": false,
-                    "popup_width": "1000",
-                    "popup_height": "650",
-                    "locale": "en"
-                });
-                isLoading = false;
-            } catch (error) {
-                console.error('TradingView widget error:', error);
-                isLoading = false;
-            }
-        };
-
-        // Load TradingView script
-        const script = document.createElement('script');
-        script.src = "https://s3.tradingview.com/tv.js";
-        script.async = true;
-        script.onload = loadTradingView;
-        script.onerror = () => {
-            console.error('Failed to load TradingView script');
-            isLoading = false;
-        };
-        document.head.appendChild(script);
-
-        // Start auto-updating
-        updateInterval = setInterval(generateNewTrade, 1000);
+        // Delay initialization slightly to ensure DOM is ready
+        setTimeout(initTradingView, 0);
     });
 
     onDestroy(() => {
-        if (updateInterval) {
-            clearInterval(updateInterval);
+        if (widget) {
+            try {
+                widget.remove();
+            } catch (error) {
+                console.error('Error cleaning up TradingView widget:', error);
+            }
         }
+        if (updateInterval) clearInterval(updateInterval);
     });
 </script>
 
-<div class="min-h-screen bg-gray-50">
-    <!-- Updated Header -->
-    <div class="bg-white border-b border-gray-200">
-        <div class="container mx-auto">
-            <div class="flex items-center h-16 px-4">
-                <!-- Pair Selector with Dropdown -->
+<div class="min-h-screen bg-gray-50" in:fade>
+    <!-- Header Section -->
+    <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-6">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <!-- Pair Selector -->
                 <div class="relative">
                     <button 
-                        class="flex items-center space-x-2 hover:bg-gray-50 rounded-lg px-3 py-2"
-                        on:click={toggleDropdown}
+                        class="flex items-center space-x-2 bg-white/10 hover:bg-white/20 rounded-xl px-4 py-2 text-white transition-colors"
+                        on:click={() => isDropdownOpen = !isDropdownOpen}
                     >
-                        <div class="flex items-center">
-                            <img 
-                                src="https://s2.coinmarketcap.com/static/img/coins/64x64/1.png" 
-                                alt="BTC" 
-                                class="w-8 h-8 mr-2"
-                            />
-                            <span class="font-semibold">BTC/USDT</span>
-                            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </div>
+                        <img 
+                            src={tradingPairs.find(p => p.symbol === currentPair.symbol)?.icon} 
+                            alt={currentPair.symbol}
+                            class="w-8 h-8"
+                        />
+                        <span class="font-medium">{currentPair.symbol}</span>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
                     </button>
 
                     {#if isDropdownOpen}
-                        <div class="absolute z-50 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200">
+                        <div class="absolute z-50 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-100">
                             {#each tradingPairs as pair}
                                 <button
-                                    class="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2"
+                                    class="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 first:rounded-t-xl last:rounded-b-xl"
                                     on:click={() => selectPair(pair)}
                                 >
-                                    <span class="w-6">{pair.icon}</span>
-                                    <span>{pair.symbol}</span>
+                                    <img src={pair.icon} alt={pair.symbol} class="w-8 h-8"/>
+                                    <div>
+                                        <div class="font-medium text-gray-900">{pair.name}</div>
+                                        <div class="text-sm text-gray-500">{pair.symbol}</div>
+                                    </div>
                                 </button>
                             {/each}
                         </div>
                     {/if}
                 </div>
 
-                <!-- Price Info -->
-                <div class="flex items-center ml-8 space-x-12">
+                <!-- Price Stats -->
+                <div class="flex flex-wrap items-center gap-8 text-white">
                     <div>
-                        <div class="text-sm text-gray-500">Last Price</div>
-                        <div class="font-semibold text-red-500">{currentPair.lastPrice} USDT</div>
+                        <div class="text-sm text-white/80">Last Price</div>
+                        <div class="text-lg font-semibold">{currentPair.lastPrice} USDT</div>
                     </div>
                     <div>
-                        <div class="text-sm text-gray-500">24h Change</div>
-                        <div class="flex items-center text-red-500">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                            </svg>
-                            {currentPair.change}%
-                        </div>
+                        <div class="text-sm text-white/80">24h Change</div>
+                        <div class="text-lg font-semibold text-red-400">{currentPair.change}%</div>
                     </div>
                     <div>
-                        <div class="text-sm text-gray-500">24h Low</div>
-                        <div class="font-semibold">{currentPair.low} USDT</div>
+                        <div class="text-sm text-white/80">24h High</div>
+                        <div class="text-lg font-semibold">{currentPair.high}</div>
                     </div>
                     <div>
-                        <div class="text-sm text-gray-500">24h High</div>
-                        <div class="font-semibold">{currentPair.high} USDT</div>
+                        <div class="text-sm text-white/80">24h Low</div>
+                        <div class="text-lg font-semibold">{currentPair.low}</div>
                     </div>
                     <div>
-                        <div class="text-sm text-gray-500">Volume</div>
-                        <div class="font-semibold">{currentPair.volume} USDT</div>
+                        <div class="text-sm text-white/80">24h Volume</div>
+                        <div class="text-lg font-semibold">{currentPair.volume}</div>
                     </div>
                 </div>
             </div>
@@ -268,193 +276,174 @@
     </div>
 
     <!-- Main Content -->
-    <div class="flex flex-col h-screen">
-        <!-- Top Section with Chart and Order Book -->
-        <div class="flex flex-1">
-            <!-- Chart Container - Takes 70% of the width -->
-            <div class="w-[70%] relative">
-                {#if isLoading}
-                    <div class="absolute inset-0 flex items-center justify-center bg-white">
-                        <div class="flex flex-col items-center">
-                            <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                            <p class="mt-4 text-gray-600">Loading chart...</p>
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Chart Section -->
+            <div class="lg:col-span-3 bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="relative h-[600px]">
+                    {#if isLoading}
+                        <div class="absolute inset-0 flex items-center justify-center bg-white">
+                            <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
                         </div>
-                    </div>
-                {/if}
-                <div 
-                    id="tradingview_chart"
-                    class="tradingview-chart"
-                ></div>
+                    {/if}
+                    {#if chartError}
+                        <div class="absolute inset-0 flex items-center justify-center bg-white">
+                            <div class="text-center">
+                                <p class="mb-4 text-red-500">{chartError}</p>
+                                <button 
+                                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                                    on:click={() => {
+                                        isLoading = true;
+                                        chartError = null;
+                                        initTradingView();
+                                    }}
+                                >
+                                    Retry Loading Chart
+                                </button>
+                            </div>
+                        </div>
+                    {/if}
+                    <div id="tradingview_widget" class="h-full w-full"></div>
+                </div>
             </div>
 
-            <!-- Order Book - Takes 30% of the width -->
-            <div class="w-[30%] bg-white border-l border-gray-200">
-                <div class="p-4">
-                    <div class="flex justify-between mb-4">
-                        <button class="font-semibold text-blue-600">Order Book</button>
-                        <button class="text-gray-500">Market Trades</button>
-                    </div>
-
-                    <!-- Order Book Table -->
-                    <div class="text-sm">
-                        <div class="grid grid-cols-3 gap-4 font-medium text-gray-500 mb-2">
-                            <div>PRICE (USDT)</div>
-                            <div>AMOUNT (BTC)</div>
-                            <div>TOTAL (USDT)</div>
+            <!-- Order Book -->
+            <div class="bg-white rounded-xl shadow-sm p-4">
+                <h2 class="text-lg font-semibold mb-4">Order Book</h2>
+                
+                <!-- Asks -->
+                <div class="space-y-1 mb-4">
+                    {#each orderBookData.asks as ask}
+                        <div class="grid grid-cols-3 text-sm py-1 text-red-500">
+                            <span>{parseFloat(ask.price).toFixed(2)}</span>
+                            <span>{ask.amount}</span>
+                            <span>{parseFloat(ask.total).toFixed(2)}</span>
                         </div>
+                    {/each}
+                </div>
 
-                        <!-- Asks (Sell Orders) -->
-                        <div class="space-y-1">
-                            {#each orderBookData.asks as ask}
-                                <div class="grid grid-cols-3 gap-4 text-red-500 bg-red-50 transition-all duration-200">
-                                    <div>{parseFloat(ask.price).toFixed(4)}</div>
-                                    <div>{ask.amount}</div>
-                                    <div>{ask.total}</div>
-                                </div>
-                            {/each}
-                        </div>
+                <!-- Current Price -->
+                <div class="text-center py-2 font-semibold text-lg border-y border-gray-100">
+                    {parseFloat(currentPair.lastPrice).toFixed(2)} USDT
+                </div>
 
-                        <!-- Current Price -->
-                        <div class="text-center py-2 font-semibold text-lg">
-                            {parseFloat(currentPair.lastPrice).toFixed(4)} USDT
+                <!-- Bids -->
+                <div class="space-y-1 mt-4">
+                    {#each orderBookData.bids as bid}
+                        <div class="grid grid-cols-3 text-sm py-1 text-green-500">
+                            <span>{parseFloat(bid.price).toFixed(2)}</span>
+                            <span>{bid.amount}</span>
+                            <span>{parseFloat(bid.total).toFixed(2)}</span>
                         </div>
-
-                        <!-- Bids (Buy Orders) -->
-                        <div class="space-y-1">
-                            {#each orderBookData.bids as bid}
-                                <div class="grid grid-cols-3 gap-4 text-green-500 bg-green-50 transition-all duration-200">
-                                    <div>{parseFloat(bid.price).toFixed(4)}</div>
-                                    <div>{bid.amount}</div>
-                                    <div>{bid.total}</div>
-                                </div>
-                            {/each}
-                        </div>
-                    </div>
+                    {/each}
                 </div>
             </div>
         </div>
 
-        <!-- Bottom Section - Trading Form -->
-        <div class="bg-white border-t border-gray-200">
-            <!-- Order Type Tabs -->
-            <div class="border-b border-gray-200">
-                <div class="flex">
-                    <button class="px-6 py-3 text-blue-600 border-b-2 border-blue-600 font-medium">
-                        Open Orders
+        <!-- Trading Form -->
+        <div class="mt-6 bg-white rounded-xl shadow-sm p-6">
+            <div class="flex justify-between mb-6">
+                <div class="flex gap-4">
+                    <button 
+                        class="px-6 py-2 rounded-lg font-medium transition-colors {orderType === 'buy' ? 'bg-green-500 text-white' : 'text-gray-600 hover:bg-gray-100'}"
+                        on:click={() => orderType = 'buy'}
+                    >
+                        Buy
                     </button>
-                    <button class="px-6 py-3 text-gray-500 hover:text-gray-700 font-medium">
-                        Trade history
+                    <button 
+                        class="px-6 py-2 rounded-lg font-medium transition-colors {orderType === 'sell' ? 'bg-red-500 text-white' : 'text-gray-600 hover:bg-gray-100'}"
+                        on:click={() => orderType = 'sell'}
+                    >
+                        Sell
+                    </button>
+                </div>
+                <div class="flex gap-4">
+                    <button 
+                        class="px-4 py-2 rounded-lg font-medium transition-colors {orderMode === 'limit' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'}"
+                        on:click={() => orderMode = 'limit'}
+                    >
+                        Limit
+                    </button>
+                    <button 
+                        class="px-4 py-2 rounded-lg font-medium transition-colors {orderMode === 'market' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'}"
+                        on:click={() => orderMode = 'market'}
+                    >
+                        Market
                     </button>
                 </div>
             </div>
 
-            <!-- Trading Form -->
-            <div class="p-4">
-                <!-- Buy/Sell and Order Type Tabs -->
-                <div class="flex justify-between mb-6">
-                    <div class="flex space-x-4">
-                        <button class="px-8 py-2 bg-emerald-500 text-white rounded-lg font-medium">
-                            Buy
-                        </button>
-                        <button class="px-8 py-2 text-gray-700 hover:bg-gray-100 rounded-lg font-medium">
-                            Sell
-                        </button>
-                    </div>
-                    <div class="flex space-x-2">
-                        <button class="px-4 py-2 text-blue-600 border-b-2 border-blue-600 font-medium">
-                            Limit
-                        </button>
-                        <button class="px-4 py-2 text-gray-500 hover:text-gray-700 font-medium">
-                            Market
-                        </button>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Price Input -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Price</label>
+                    <div class="relative">
+                        <input 
+                            type="number"
+                            bind:value={limitPrice}
+                            class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="0.00"
+                            disabled={!$session.isAuthenticated || orderMode === 'market'}
+                        />
+                        <span class="absolute right-3 top-2.5 text-gray-500">USDT</span>
                     </div>
                 </div>
 
-                <!-- Order Form Grid -->
-                <div class="grid grid-cols-4 gap-4">
-                    <!-- Limit Price -->
-                    <div>
-                        <label class="block text-gray-600 mb-2">Limit Price</label>
-                        <div class="relative">
-                            <input 
-                                type="number" 
-                                bind:value={limitPrice}
-                                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="0"
-                                disabled={!$session.isAuthenticated}
-                            />
-                            <span class="absolute right-4 top-2.5 text-gray-500">USDT</span>
-                        </div>
-                    </div>
-
-                    <!-- Amount -->
-                    <div>
-                        <label class="block text-gray-600 mb-2">Amount</label>
-                        <div class="relative">
-                            <input 
-                                type="number" 
-                                bind:value={amount}
-                                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="0"
-                                disabled={!$session.isAuthenticated}
-                            />
-                            <span class="absolute right-4 top-2.5 text-gray-500">BTC</span>
-                        </div>
-                    </div>
-
-                    <!-- Total -->
-                    <div>
-                        <label class="block text-gray-600 mb-2">Total</label>
-                        <div class="relative">
-                            <input 
-                                type="number" 
-                                bind:value={total}
-                                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="0"
-                                disabled={!$session.isAuthenticated}
-                            />
-                            <span class="absolute right-4 top-2.5 text-gray-500">USDT</span>
-                        </div>
-                    </div>
-
-                    <!-- Login/Place Order Button -->
-                    <div class="flex flex-col justify-end">
-                        {#if $session.isAuthenticated}
-                            <button 
-                                class="w-full py-2 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors disabled:opacity-50"
-                                on:click={handlePlaceOrder}
-                                disabled={isPlacingOrder}
-                            >
-                                {#if isPlacingOrder}
-                                    <div class="flex items-center justify-center">
-                                        <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                                        Processing...
-                                    </div>
-                                {:else}
-                                    Place Order
-                                {/if}
-                            </button>
-                        {:else}
-                            <button 
-                                class="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                                on:click={() => window.location.href = '/account/login'}
-                            >
-                                Log In to Trade
-                            </button>
-                        {/if}
+                <!-- Amount Input -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                    <div class="relative">
+                        <input 
+                            type="number"
+                            bind:value={amount}
+                            class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="0.00"
+                            disabled={!$session.isAuthenticated}
+                        />
+                        <span class="absolute right-3 top-2.5 text-gray-500">BTC</span>
                     </div>
                 </div>
 
-                <!-- Percentage Slider -->
-                <div class="mt-4">
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-medium">0%</span>
-                        <div class="h-2 w-2 rounded-full bg-blue-600"></div>
-                        <div class="h-2 w-2 rounded-full bg-gray-300"></div>
-                        <div class="h-2 w-2 rounded-full bg-gray-300"></div>
-                        <div class="h-2 w-2 rounded-full bg-gray-300"></div>
-                        <span class="text-sm font-medium">Fee: 0%</span>
+                <!-- Total Input -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Total</label>
+                    <div class="relative">
+                        <input 
+                            type="number"
+                            bind:value={total}
+                            class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="0.00"
+                            disabled={!$session.isAuthenticated}
+                        />
+                        <span class="absolute right-3 top-2.5 text-gray-500">USDT</span>
                     </div>
+                </div>
+
+                <!-- Action Button -->
+                <div class="flex items-end">
+                    {#if $session.isAuthenticated}
+                        <button 
+                            class="w-full py-2 rounded-lg font-medium transition-colors disabled:opacity-50 {orderType === 'buy' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'} text-white"
+                            on:click={handlePlaceOrder}
+                            disabled={isPlacingOrder}
+                        >
+                            {#if isPlacingOrder}
+                                <div class="flex items-center justify-center">
+                                    <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                    Processing...
+                                </div>
+                            {:else}
+                                {orderType === 'buy' ? 'Buy' : 'Sell'} {currentPair.symbol.split('/')[0]}
+                            {/if}
+                        </button>
+                    {:else}
+                        <button 
+                            class="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+                            on:click={() => window.location.href = '/account/login'}
+                        >
+                            Login to Trade
+                        </button>
+                    {/if}
                 </div>
             </div>
         </div>
@@ -463,38 +452,17 @@
 
 <style>
     :global(body) {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
+        background-color: #F3F4F6;
     }
 
-    .tradingview-chart {
-        height: calc(100vh - 84px);
-    }
-
-    :global(#tradingview_chart) {
-        height: 100% !important;
-    }
-
+    :global(#tradingview_widget),
     :global(.tradingview-widget-container) {
         height: 100% !important;
+        width: 100% !important;
     }
 
     :global(.tradingview-widget-container iframe) {
         height: 100% !important;
         width: 100% !important;
-    }
-
-    /* Add animation for new trades */
-    .grid {
-        transition: background-color 0.3s ease;
-    }
-    
-    .grid:hover {
-        background-color: rgba(0, 0, 0, 0.05);
-    }
-
-    .dropdown-shadow {
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
 </style>
