@@ -16,10 +16,11 @@
     const isSidebarOpen = writable(true);
     const toggleSidebar = () => isSidebarOpen.update(n => !n);
 
-    $: ({ user, isAuthenticated, isAdmin } = $page.data);
+    $: ({ user } = $page.data);
+    $: isAdmin = $session.user?.role === 'admin';
 
-    // Updated admin navigation items with better organization
-    $: navItems = $session.user?.role === 'admin' ? [
+    // Update the admin navigation items
+    $: navItems = isAdmin ? [
         { 
             icon: "grid", 
             label: "Dashboard", 
@@ -42,15 +43,14 @@
             icon: "wallet", 
             label: "Add cryptocurrency", 
             href: "/admin/cryptocurrency",
-            description: "add cryptocurrency"
+            description: "Add Cryptocurrency"
         },
         { 
             icon: "file-text", 
             label: "Users", 
             href: "/admin/users",
             description: "User Management" 
-        },
-        
+        }
     ] : [
         { 
             icon: "grid", 
@@ -144,7 +144,7 @@
         showProfileMenu = false;
         session.logout();
         notifications.success('Successfully logged out');
-        window.location.href = '/account/login';
+        window.location.href = '/login';
     }
 
     // Close profile menu when clicking outside
@@ -161,8 +161,11 @@
         !$page.url.pathname.includes('/wallets');
 
     // Check if user is admin
-    $: isAdmin = $session.user?.role === 'admin';
     $: isAdminRoute = $page.url.pathname.startsWith('/admin');
+
+    // Update the isAuthPage check to include both /login and /signup paths
+    $: isAuthPage = $page.url.pathname === '/login' || 
+                    $page.url.pathname === '/signup';
 </script>
 
 <Notifications />
@@ -176,21 +179,23 @@
 
 <svelte:window on:click={handleClickOutside} />
 
-<!-- Mobile Menu Button (visible only on mobile) -->
-<button 
-    class="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white shadow-md"
-    on:click={toggleMobileMenu}
->
-    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        {#if isMobileMenuOpen}
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        {:else}
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-        {/if}
-    </svg>
-</button>
+<!-- Update the Mobile Menu Button to hide on signup page -->
+{#if !isAuthPage && !$page.url.pathname.includes('/signup')}
+    <button 
+        class="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white shadow-md"
+        on:click={toggleMobileMenu}
+    >
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {#if isMobileMenuOpen}
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            {:else}
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            {/if}
+        </svg>
+    </button>
+{/if}
 
-{#if !isAccountPage}
+{#if !isAuthPage}
     <div class="app-layout">
         <!-- Sidebar -->
         <aside class="fixed top-0 left-0 z-40 h-screen bg-white border-r border-gray-200/80 transition-all duration-300 shadow-sm
@@ -520,10 +525,10 @@
                     {:else}
                         <!-- Login/Signup buttons -->
                         <div class="flex items-center gap-3">
-                            <a href="/account/login" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200">
+                            <a href="/login" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200">
                                 Login
                             </a>
-                            <a href="/account/signup    " class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200">
+                            <a href="/signup" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200">
                                 Sign Up
                             </a>
                         </div>

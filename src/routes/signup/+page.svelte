@@ -2,6 +2,10 @@
     import { enhance } from '$app/forms';
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
+    import { notifications } from '$lib/stores/notifications';
+    import { session } from '$lib/stores/session';
+    import { fade } from 'svelte/transition';
+    import { PUBLIC_API_URL } from '$env/static/public';
     
     let email = '';
     let password = '';
@@ -169,32 +173,40 @@
             isLoading = true;
             errorMessage = '';
 
-            const signupData = {
-                firstName,
-                lastName,
-                email,
-                password,
-                confirmPassword
-            };
+            const response = await fetch(`${PUBLIC_API_URL}/api/auth/signup`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    firstName,
+                    lastName,
+                    email,
+                    password,
+                    confirmPassword
+                })
+            });
 
-            const result = await signup(signupData);
+            const data = await response.json();
 
-            // If signup successful, redirect to login
-            goto('/account/login?registered=true');
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to create account');
+            }
+
+            // Show success notification
+            notifications.success('Account created successfully! Redirecting to login...');
+
+            // Redirect to login page
+            goto('/login', { replaceState: true });
 
         } catch (err) {
             error = err instanceof Error ? err : new Error('An unknown error occurred');
             console.error('Submit error:', error);
             errorMessage = error.message || 'Failed to create account. Please try again.';
+            notifications.error(errorMessage);
         } finally {
             isLoading = false;
         }
-    }
-
-    // Add a simple signup function if you don't have the auth library set up
-    async function signup(data: any) {
-        // Implement your signup logic here
-        return Promise.resolve();
     }
 </script>
 
@@ -202,55 +214,73 @@
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </svelte:head>
 
-<div class="flex min-h-screen max-h-screen overflow-hidden">
-    <!-- Left Section -->
-    <div class="w-1/2 bg-gradient-to-br from-[#3772FF] to-[#2952cc] p-8 flex flex-col relative overflow-hidden">
-        <!-- Animated Background Elements -->
-        <div class="absolute inset-0 overflow-hidden">
-            <div class="absolute w-[500px] h-[500px] rounded-full bg-white/5 -top-48 -right-24 blur-3xl"></div>
-            <div class="absolute w-[400px] h-[400px] rounded-full bg-blue-400/10 bottom-[-100px] -left-24 blur-2xl"></div>
-            <!-- Animated Grid -->
-            <div class="absolute inset-0" style="background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px); background-size: 20px 20px;"></div>
+{#if $notifications && $notifications.message}
+    <div 
+        class="fixed top-4 right-4 z-50 max-w-sm"
+        transition:fade={{ duration: 200 }}
+    >
+        <div class="p-4 rounded-lg shadow-lg {
+            $notifications.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' :
+            $notifications.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
+            'bg-blue-50 text-blue-700 border border-blue-200'
+        }">
+            <div class="flex items-center gap-2">
+                {#if $notifications.type === 'success'}
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                {:else if $notifications.type === 'error'}
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                {/if}
+                <p class="text-sm font-medium">{$notifications.message}</p>
+            </div>
         </div>
+    </div>
+{/if}
 
-        <!-- Logo Section -->
-        <div class="relative mb-12">
+<div class="flex flex-col lg:flex-row min-h-screen">
+    <!-- Left Section - Update mobile spacing -->
+    <div class="w-full lg:w-1/2 bg-gradient-to-br from-[#3772FF] to-[#2952cc] p-3 sm:p-4 lg:p-8 flex flex-col relative overflow-y-auto lg:overflow-hidden">
+        <!-- Logo Section - Adjust mobile size -->
+        <div class="relative mb-3 sm:mb-4 lg:mb-12">
             <div class="flex items-center">
                 <img 
                     src="/images/LOGwOOC.png" 
                     alt="Logo" 
-                    class="h-14 object-contain" 
+                    class="h-7 sm:h-8 lg:h-14 object-contain" 
                 />
             </div>
         </div>
         
-        <!-- Content Section -->
-        <div class="flex-grow flex flex-col justify-center relative z-10">
-            <!-- Stats Section -->
-            <div class="flex gap-6 mb-12">
-                <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-4 flex-1">
-                    <div class="text-white/60 text-sm mb-1">Active Users</div>
-                    <div class="text-white text-2xl font-bold">250K+</div>
+        <!-- Content Section - Improve mobile spacing -->
+        <div class="flex-grow flex flex-col justify-center relative z-10 py-3 sm:py-4 lg:py-0">
+            <!-- Stats Section - Better mobile layout -->
+            <div class="flex gap-2 sm:gap-3 lg:gap-6 mb-4 sm:mb-6 lg:mb-12">
+                <div class="bg-white/10 backdrop-blur-lg rounded-xl p-2 sm:p-3 lg:p-4 flex-1">
+                    <div class="text-white/60 text-xs lg:text-sm mb-0.5 sm:mb-1">Active Users</div>
+                    <div class="text-white text-sm sm:text-base lg:text-2xl font-bold">250K+</div>
                 </div>
-                <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-4 flex-1">
-                    <div class="text-white/60 text-sm mb-1">Daily Volume</div>
-                    <div class="text-white text-2xl font-bold">$2.5M</div>
+                <div class="bg-white/10 backdrop-blur-lg rounded-xl p-2 sm:p-3 lg:p-4 flex-1">
+                    <div class="text-white/60 text-xs lg:text-sm mb-0.5 sm:mb-1">Daily Volume</div>
+                    <div class="text-white text-sm sm:text-base lg:text-2xl font-bold">$2.5M</div>
                 </div>
             </div>
 
-            <!-- Main Content -->
-            <div class="space-y-6 max-w-lg">
-                <div class="space-y-4">
-                    <h1 class="text-white text-5xl font-bold leading-tight">
+            <!-- Main Content - Adjust text sizes -->
+            <div class="space-y-3 sm:space-y-4 lg:space-y-6 max-w-lg">
+                <div class="space-y-2 lg:space-y-4">
+                    <h1 class="text-xl sm:text-2xl lg:text-5xl text-white font-bold leading-tight">
                         Welcome to the Future of Trading
                     </h1>
-                    <p class="text-white/80 text-xl leading-relaxed">
+                    <p class="text-sm sm:text-base lg:text-xl text-white/80 leading-relaxed">
                         Experience secure, professional, and lightning-fast crypto trading with advanced tools and real-time analytics.
                     </p>
                 </div>
 
-                <!-- Features List -->
-                <div class="space-y-4 mt-8">
+                <!-- Features List - Adjust spacing -->
+                <div class="space-y-3 lg:space-y-4 mt-4 lg:mt-8">
                     <div class="flex items-center space-x-3 text-white/90">
                         <div class="bg-white/20 rounded-full p-2">
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -280,12 +310,12 @@
                     </div>
                 </div>
 
-                <!-- Special Offer Section -->
-                <div class="mt-12 bg-white/10 backdrop-blur-lg rounded-2xl p-6">
-                    <h3 class="text-white text-xl font-semibold mb-4">
+                <!-- Special Offer Section - Adjust for mobile -->
+                <div class="mt-8 lg:mt-12 bg-white/10 backdrop-blur-lg rounded-xl p-4 lg:p-6">
+                    <h3 class="text-lg lg:text-xl text-white font-semibold mb-3 lg:mb-4">
                         Limited Time Offer! 🚀
                     </h3>
-                    <p class="text-white/80 mb-4">
+                    <p class="text-sm lg:text-base text-white/80 mb-4">
                         Sign up now and get 0% trading fees for 30 days!
                     </p>
                     <div class="flex gap-4">
@@ -303,44 +333,181 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Floating Crypto Icons -->
-            <div class="absolute bottom-12 right-8 flex items-center space-x-4">
-                <div class="bg-white/10 backdrop-blur-lg rounded-full p-3 animate-float-slow">
-                    <img src="/images/crypto images/icoco.png" alt="Crypto" class="w-10 h-10" />
-                </div>
-                <div class="bg-white/10 backdrop-blur-lg rounded-full p-3 animate-float-medium">
-                    <img src="/images/crypto images/icoco.png" alt="Crypto" class="w-10 h-10" />
-                </div>
-                <div class="bg-white/10 backdrop-blur-lg rounded-full p-3 animate-float-fast">
-                    <img src="/images/crypto images/icoco.png" alt="Crypto" class="w-10 h-10" />
-                </div>
-            </div>
         </div>
     </div>
 
-    <!-- Right Section -->
-    <div class="w-1/2 p-8 flex items-center bg-gray-50/50 backdrop-blur-sm">
-        <div class="w-full max-w-md mx-auto space-y-8">
-            <!-- Enhanced Form Header -->
-            <div class="text-center space-y-3">
-                <h2 class="text-2xl font-bold text-gray-900">Create Your Account</h2>
-                <p class="text-gray-500">Join thousands of traders worldwide</p>
-                <div class="flex items-center justify-center gap-2 mt-2">
-                    <span class="px-3 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">
-                        <div class="flex items-center gap-1">
-                            <div class="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                            250k+ Active Users
-                        </div>
-                    </span>
-                    <span class="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-medium">
-                        <div class="flex items-center gap-1">
-                            <div class="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                            24/7 Support
-                        </div>
-                    </span>
-                </div>
+    <!-- Right Section - Improve form spacing -->
+    <div class="w-full lg:w-1/2 p-3 sm:p-4 lg:p-8 bg-gray-50/50 backdrop-blur-sm overflow-y-auto">
+        <div class="w-full max-w-md mx-auto space-y-4 sm:space-y-6">
+            <!-- Form header adjustments -->
+            <div class="text-center space-y-1 sm:space-y-2 lg:space-y-3">
+                <h2 class="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Create Your Account</h2>
+                <p class="text-xs sm:text-sm lg:text-base text-gray-500">Join thousands of traders worldwide</p>
             </div>
+
+            <!-- Update the style section with enhanced mobile responsiveness -->
+            <style>
+                /* Mobile-first approach */
+                @media (max-width: 640px) {
+                    .input-field {
+                        @apply py-3 text-sm;
+                        height: 48px;
+                    }
+
+                    .form-label {
+                        @apply text-sm mb-1;
+                    }
+
+                    .input-icon {
+                        @apply w-4 h-4;
+                    }
+
+                    .form-group {
+                        @apply mb-4;
+                    }
+
+                    .grid-cols-2 {
+                        @apply gap-2;
+                    }
+
+                    button[type="submit"] {
+                        @apply py-3 text-sm;
+                        height: 48px;
+                    }
+
+                    .verify-container {
+                        height: 48px;
+                    }
+
+                    .verify-thumb {
+                        @apply w-8 h-8;
+                    }
+
+                    input[type="checkbox"] {
+                        @apply w-5 h-5;
+                    }
+
+                    .space-y-4 > * {
+                        margin-top: 1rem;
+                        margin-bottom: 1rem;
+                    }
+                }
+
+                /* Tablet improvements */
+                @media (min-width: 641px) and (max-width: 1024px) {
+                    .input-field {
+                        @apply py-3.5 text-base;
+                        height: 52px;
+                    }
+
+                    .form-label {
+                        @apply text-base mb-1.5;
+                    }
+
+                    .input-icon {
+                        @apply w-5 h-5;
+                    }
+
+                    .form-group {
+                        @apply mb-5;
+                    }
+
+                    .grid-cols-2 {
+                        @apply gap-3;
+                    }
+
+                    button[type="submit"] {
+                        @apply py-3.5 text-base;
+                        height: 52px;
+                    }
+
+                    .verify-container {
+                        height: 56px;
+                    }
+
+                    .verify-thumb {
+                        @apply w-10 h-10;
+                    }
+
+                    input[type="checkbox"] {
+                        @apply w-5 h-5;
+                    }
+
+                    .space-y-6 > * {
+                        margin-top: 1.25rem;
+                        margin-bottom: 1.25rem;
+                    }
+                }
+
+                /* Touch-specific improvements */
+                @media (hover: none) and (pointer: coarse) {
+                    .input-field, button, a {
+                        @apply min-h-[44px]; /* Minimum touch target size */
+                    }
+
+                    .input-action-btn {
+                        @apply p-2; /* Larger touch area for buttons */
+                    }
+
+                    a {
+                        @apply py-2 px-3 inline-block;
+                    }
+                }
+
+                /* Better form spacing for small screens */
+                @media (max-height: 700px) {
+                    .space-y-4 > * {
+                        margin-top: 0.75rem;
+                        margin-bottom: 0.75rem;
+                    }
+
+                    .form-group {
+                        @apply mb-3;
+                    }
+                }
+
+                /* iOS-specific fixes */
+                @supports (-webkit-touch-callout: none) {
+                    .min-h-screen {
+                        min-height: -webkit-fill-available;
+                    }
+
+                    .input-field {
+                        @apply appearance-none;
+                    }
+                }
+
+                /* Improved scrolling */
+                .overflow-y-auto {
+                    -webkit-overflow-scrolling: touch;
+                    scroll-behavior: smooth;
+                }
+
+                /* Better form element spacing */
+                .form-group {
+                    @apply relative;
+                }
+
+                .input-container {
+                    @apply relative flex items-center bg-white;
+                }
+
+                .input-field {
+                    @apply w-full rounded-xl border border-gray-200
+                           transition-all duration-200
+                           focus:outline-none focus:ring-2 focus:ring-[#3772FF]/20
+                           focus:border-[#3772FF];
+                }
+
+                /* Enhanced touch feedback */
+                .input-field:active {
+                    @apply bg-gray-50;
+                }
+
+                button:active {
+                    @apply transform scale-95;
+                }
+            </style>
 
             <!-- Error Message -->
             {#if errorMessage}
@@ -677,7 +844,7 @@
                         </div>
                     </div>
                     <a 
-                        href="/account/login" 
+                        href="/login" 
                         class="inline-flex items-center justify-center px-4 py-2 border border-[#3772FF] text-sm font-medium rounded-xl text-[#3772FF] bg-transparent hover:bg-[#3772FF]/5 transition-colors duration-200"
                     >
                         Sign in to your account
@@ -900,5 +1067,76 @@
 
     input[type="checkbox"]:focus {
         @apply outline-none ring-2 ring-offset-2 ring-[#3772FF]/20;
+    }
+
+    /* Update responsive styles */
+    @media (max-width: 1024px) {
+        :global(body) {
+            overflow-y: auto;
+        }
+
+        .max-h-screen {
+            max-height: none;
+        }
+
+        .min-h-screen {
+            min-height: 100vh;
+        }
+    }
+
+    /* Add touch-friendly adjustments for mobile */
+    @media (max-width: 768px) {
+        .input-field {
+            @apply py-3.5 text-base;  /* Larger input fields */
+        }
+
+        .form-label {
+            @apply text-base;  /* Larger labels */
+        }
+
+        button[type="submit"] {
+            @apply py-4 text-base;  /* Larger submit button */
+        }
+
+        .verify-container {
+            height: 64px;  /* Larger verification slider */
+        }
+
+        .verify-thumb {
+            @apply w-12 h-12;  /* Larger slider thumb */
+        }
+
+        /* Improve touch targets */
+        input[type="checkbox"] {
+            @apply w-6 h-6;
+        }
+
+        /* Better spacing for mobile */
+        .space-y-6 > * {
+            margin-top: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Adjust form groups for better mobile spacing */
+        .form-group {
+            @apply mb-6;
+        }
+
+        /* Make links more touchable */
+        a {
+            @apply py-2 px-3 inline-block;
+        }
+    }
+
+    /* Fix iOS height issues */
+    @supports (-webkit-touch-callout: none) {
+        .min-h-screen {
+            min-height: -webkit-fill-available;
+        }
+    }
+
+    /* Improve scrolling behavior */
+    .overflow-y-auto {
+        -webkit-overflow-scrolling: touch;
     }
 </style> 

@@ -16,7 +16,7 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
             return {
                 user: currentUser,
                 isAuthenticated: true,
-                isAdmin: currentUser.isAdmin ?? false
+                isAdmin: currentUser.role === 'admin'
             };
         }
 
@@ -35,7 +35,7 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
                     return {
                         user: profile,
                         isAuthenticated: true,
-                        isAdmin: profile.isAdmin ?? false
+                        isAdmin: profile.role === 'admin'
                     };
                 }
             } catch (error) {
@@ -47,10 +47,10 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
         const protectedRoutes = ['/admin', '/wallets', '/exchange', '/activities', '/profile'];
         const isProtectedRoute = protectedRoutes.some(route => url.pathname.startsWith(route));
 
-        // Only redirect if we don't have a token and trying to access protected route
+        // Redirect to login if trying to access protected route without token
         if (isProtectedRoute && !token) {
             console.log('Protected route access denied, redirecting to login');
-            throw redirect(302, '/account/login');
+            throw redirect(302, '/login');
         }
 
         return {

@@ -127,154 +127,157 @@
     onMount(fetchPendingWithdrawals);
 </script>
 
-<div class="max-w-7xl mx-auto p-8">
-    <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-        <div class="flex justify-between items-center mb-6">
-            <div>
-                <h3 class="text-lg font-semibold text-gray-900">Pending Withdrawals</h3>
-                <p class="text-sm text-gray-500 mt-1">Manage withdrawal requests</p>
-            </div>
-            <div class="flex items-center gap-3">
-                <div class="flex items-center gap-2 text-sm text-gray-500">
-                    <div class="w-3 h-3 rounded-full bg-orange-500"></div>
-                    <span>Pending</span>
+<div class="bg-white rounded-xl shadow-lg p-6">
+    <h1 class="text-2xl font-bold mb-6">Manage Withdrawals</h1>
+    <div class="max-w-7xl mx-auto p-8">
+        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Pending Withdrawals</h3>
+                    <p class="text-sm text-gray-500 mt-1">Manage withdrawal requests</p>
                 </div>
-                <button 
-                    class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 
-                           flex items-center gap-2 shadow-lg shadow-indigo-500/20"
-                    on:click={fetchPendingWithdrawals}
-                >
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Refresh
-                </button>
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2 text-sm text-gray-500">
+                        <div class="w-3 h-3 rounded-full bg-orange-500"></div>
+                        <span>Pending</span>
+                    </div>
+                    <button 
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 
+                               flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+                        on:click={fetchPendingWithdrawals}
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
             </div>
-        </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead>
-                    <tr class="border-b border-gray-100">
-                        <th class="px-6 py-3 text-left">
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">User</span>
-                                <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                                </svg>
-                            </div>
-                        </th>
-                        <th class="px-6 py-3 text-left">
-                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Date</span>
-                        </th>
-                        <th class="px-6 py-3 text-left">
-                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</span>
-                        </th>
-                        <th class="px-6 py-3 text-left">
-                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Network Fee</span>
-                        </th>
-                        <th class="px-6 py-3 text-left">
-                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Address</span>
-                        </th>
-                        <th class="px-6 py-3 text-right">
-                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</span>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-50">
-                    {#if isLoading}
-                        <tr>
-                            <td colspan="6" class="py-8">
-                                <div class="flex justify-center">
-                                    <div class="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent"></div>
-                                </div>
-                            </td>
-                        </tr>
-                    {:else if pendingWithdrawals.length === 0}
-                        <tr>
-                            <td colspan="6" class="py-16">
-                                <div class="flex flex-col items-center justify-center text-gray-400">
-                                    <svg class="w-16 h-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
-                                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-100">
+                            <th class="px-6 py-3 text-left">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">User</span>
+                                    <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
                                     </svg>
-                                    <span class="text-lg">No pending withdrawals</span>
                                 </div>
-                            </td>
+                            </th>
+                            <th class="px-6 py-3 text-left">
+                                <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Date</span>
+                            </th>
+                            <th class="px-6 py-3 text-left">
+                                <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</span>
+                            </th>
+                            <th class="px-6 py-3 text-left">
+                                <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Network Fee</span>
+                            </th>
+                            <th class="px-6 py-3 text-left">
+                                <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Address</span>
+                            </th>
+                            <th class="px-6 py-3 text-right">
+                                <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</span>
+                            </th>
                         </tr>
-                    {:else}
-                        {#each pendingWithdrawals as withdrawal}
-                            <tr class="hover:bg-gray-50/50 transition-colors">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 
-                                                    flex items-center justify-center text-white font-medium">
-                                            {withdrawal.user.firstName[0]}{withdrawal.user.lastName[0]}
-                                        </div>
-                                        <div>
-                                            <div class="text-sm font-medium text-gray-900">
-                                                {withdrawal.user.firstName} {withdrawal.user.lastName}
-                                            </div>
-                                            <div class="text-sm text-gray-500">{withdrawal.user.email}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">
-                                        {new Date(withdrawal.createdAt).toLocaleDateString()}
-                                    </div>
-                                    <div class="text-xs text-gray-500">
-                                        {new Date(withdrawal.createdAt).toLocaleTimeString()}
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900">
-                                        {withdrawal.amount} {withdrawal.currency.toUpperCase()}
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-500">
-                                        {withdrawal.networkFee} {withdrawal.currency.toUpperCase()}
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-mono text-sm text-gray-900 truncate max-w-[120px]">
-                                            {withdrawal.withdrawalAddress}
-                                        </span>
-                                        <button 
-                                            class="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                                            on:click={() => copyToClipboard(withdrawal.withdrawalAddress)}
-                                        >
-                                            <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                                      d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-2M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right">
-                                    <div class="flex items-center justify-end gap-2">
-                                        <button 
-                                            class="px-3 py-1.5 text-sm font-medium text-green-700 bg-green-100 rounded-lg hover:bg-green-200 transition-colors"
-                                            on:click={() => openActionModal(withdrawal, 'approve')}
-                                        >
-                                            Approve
-                                        </button>
-                                        <button 
-                                            class="px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors"
-                                            on:click={() => openActionModal(withdrawal, 'cancel')}
-                                        >
-                                            Cancel
-                                        </button>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        {#if isLoading}
+                            <tr>
+                                <td colspan="6" class="py-8">
+                                    <div class="flex justify-center">
+                                        <div class="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent"></div>
                                     </div>
                                 </td>
                             </tr>
-                        {/each}
-                    {/if}
-                </tbody>
-            </table>
+                        {:else if pendingWithdrawals.length === 0}
+                            <tr>
+                                <td colspan="6" class="py-16">
+                                    <div class="flex flex-col items-center justify-center text-gray-400">
+                                        <svg class="w-16 h-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                        </svg>
+                                        <span class="text-lg">No pending withdrawals</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        {:else}
+                            {#each pendingWithdrawals as withdrawal}
+                                <tr class="hover:bg-gray-50/50 transition-colors">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 
+                                                        flex items-center justify-center text-white font-medium">
+                                                {withdrawal.user.firstName[0]}{withdrawal.user.lastName[0]}
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-900">
+                                                    {withdrawal.user.firstName} {withdrawal.user.lastName}
+                                                </div>
+                                                <div class="text-sm text-gray-500">{withdrawal.user.email}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">
+                                            {new Date(withdrawal.createdAt).toLocaleDateString()}
+                                        </div>
+                                        <div class="text-xs text-gray-500">
+                                            {new Date(withdrawal.createdAt).toLocaleTimeString()}
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900">
+                                            {withdrawal.amount} {withdrawal.currency.toUpperCase()}
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-500">
+                                            {withdrawal.networkFee} {withdrawal.currency.toUpperCase()}
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-mono text-sm text-gray-900 truncate max-w-[120px]">
+                                                {withdrawal.withdrawalAddress}
+                                            </span>
+                                            <button 
+                                                class="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                                on:click={() => copyToClipboard(withdrawal.withdrawalAddress)}
+                                            >
+                                                <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                          d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-2M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <button 
+                                                class="px-3 py-1.5 text-sm font-medium text-green-700 bg-green-100 rounded-lg hover:bg-green-200 transition-colors"
+                                                on:click={() => openActionModal(withdrawal, 'approve')}
+                                            >
+                                                Approve
+                                            </button>
+                                            <button 
+                                                class="px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors"
+                                                on:click={() => openActionModal(withdrawal, 'cancel')}
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {/each}
+                        {/if}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

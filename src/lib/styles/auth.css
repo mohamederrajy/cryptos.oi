@@ -1,0 +1,59 @@
+/* Base styles */
+.auth-container {
+    @apply min-h-screen flex flex-col lg:flex-row;
+}
+
+.auth-left {
+    @apply w-full lg:w-1/2 bg-gradient-to-br from-[#3772FF] to-[#2952cc] p-6 lg:p-8 flex flex-col relative min-h-[50vh] lg:min-h-screen;
+}
+
+.auth-right {
+    @apply w-full lg:w-1/2 p-6 lg:p-8 flex items-center justify-center bg-gray-50;
+}
+
+.form-container {
+    @apply w-full max-w-md mx-auto space-y-6;
+}
+
+.input-group {
+    @apply space-y-1;
+}
+
+.input-label {
+    @apply block text-sm font-medium text-gray-700;
+}
+
+.input-field {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3772FF] focus:border-[#3772FF];
+}
+
+.btn-primary {
+    @apply w-full py-2 px-4 bg-[#3772FF] text-white rounded-lg hover:bg-[#2952cc] transition-colors duration-200;
+}
+
+.floating-icons {
+    @apply hidden lg:flex absolute bottom-8 right-8 items-center space-x-4;
+}
+
+@media (max-width: 1024px) {
+    .auth-container {
+        @apply flex-col;
+    }
+    
+    .auth-left {
+        @apply min-h-[40vh];
+    }
+}
+
+/* Auth page styles */
+.auth-page {
+    @apply min-h-screen w-full flex flex-col lg:flex-row overflow-hidden;
+}
+
+.auth-left {
+    @apply w-full lg:w-1/2 bg-gradient-to-br from-[#3772FF] to-[#2952cc] p-6 lg:p-8 flex flex-col relative min-h-[50vh] lg:min-h-screen;
+}
+
+.auth-right {
+    @apply w-full lg:w-1/2 bg-gray-50 p-6 lg:p-8 overflow-y-auto;
+} 

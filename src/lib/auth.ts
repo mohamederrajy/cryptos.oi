@@ -86,7 +86,7 @@ export async function login(data: LoginData): Promise<LoginResponse> {
 export function logout() {
     session.logout();
     notifications.success('Successfully logged out');
-    goto('/account/login');
+    goto('/login');
 }
 
 export function isLoggedIn(): boolean {
@@ -95,4 +95,12 @@ export function isLoggedIn(): boolean {
 
 export function getToken(): string | null {
     return localStorage.getItem('token');
+}
+
+function redirectToLogin() {
+    goto('/login');
+}
+
+function redirectToSignup() {
+    goto('/signup');
 } 

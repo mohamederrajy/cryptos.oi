@@ -1,14 +1,22 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 import { session } from '$lib/stores/session';
-import { get } from 'svelte/store';
 
-export const load: LayoutLoad = async () => {
-    const sessionData = get(session);
-    if (!sessionData.isAuthenticated || sessionData.user?.role !== 'admin') {
-        throw redirect(302, '/account/login');
+export const load: LayoutLoad = async ({ url }) => {
+    // Check if user is logged in
+    if (!session.checkSession()) {
+        throw redirect(302, '/login');
     }
+    
+    const currentUser = session.getUser();
+    
+    // Check if user is admin
+    if (currentUser?.role !== 'admin') {
+        throw redirect(302, '/');
+    }
+    
     return {
-        user: sessionData.user
+        user: currentUser,
+        isAdmin: true
     };
 }; 

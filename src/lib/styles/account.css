@@ -1,0 +1,75 @@
+/* Base styles for account pages */
+.form-group {
+    @apply space-y-2;
+}
+
+.input-wrapper {
+    @apply relative;
+}
+
+.input-container {
+    @apply relative flex items-center bg-white rounded-xl 
+           shadow-sm transition-all duration-200
+           hover:shadow-md focus-within:shadow-md;
+}
+
+.input-icon {
+    @apply absolute left-4 text-gray-400 transition-colors duration-200;
+}
+
+.input-field {
+    @apply w-full pl-12 pr-4 py-3 bg-transparent text-gray-900 text-sm
+           border-none rounded-xl
+           placeholder:text-gray-400
+           transition-all duration-200
+           focus:outline-none focus:ring-0;
+}
+
+.input-action-btn {
+    @apply absolute right-4 text-gray-400 
+           hover:text-gray-600 
+           focus:outline-none focus:text-[#3772FF]
+           transition-colors duration-200;
+}
+
+/* Animations */
+@keyframes float-slow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes float-medium {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-15px); }
+}
+
+@keyframes float-fast {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+}
+
+.animate-float-slow {
+    animation: float-slow 4s ease-in-out infinite;
+}
+
+.animate-float-medium {
+    animation: float-medium 3.5s ease-in-out infinite;
+    animation-delay: 0.5s;
+}
+
+.animate-float-fast {
+    animation: float-fast 3s ease-in-out infinite;
+    animation-delay: 1s;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 1024px) {
+    body {
+        @apply overflow-y-auto;
+    }
+
+    .min-h-screen {
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+    }
+} 

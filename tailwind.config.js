@@ -5,7 +5,11 @@ export default {
         'node_modules/preline/dist/*.js',
     ],
     theme: {
-        extend: {},
+        extend: {
+            scale: {
+                '98': '0.98',
+            },
+        },
     },
     plugins: [
         require('@tailwindcss/forms'),
