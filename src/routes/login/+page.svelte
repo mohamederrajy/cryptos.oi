@@ -85,15 +85,15 @@
 <div class="flex flex-col lg:flex-row min-h-screen max-h-screen overflow-hidden">
     <!-- Left Section - Add mobile classes -->
     <div class="w-full lg:w-1/2 bg-gradient-to-br from-[#3772FF] to-[#2952cc] p-4 lg:p-8 flex flex-col relative overflow-y-auto lg:overflow-hidden">
-        <!-- Logo Section - Adjust for mobile -->
+        <!-- Logo Section - Update with link -->
         <div class="relative mb-6 lg:mb-12">
-            <div class="flex items-center">
+            <a href="/" class="flex items-center hover:opacity-90 transition-opacity">
                 <img 
                     src="/images/LOGwOOC.png" 
                     alt="Logo" 
                     class="h-10 lg:h-14 object-contain" 
                 />
-            </div>
+            </a>
         </div>
         
         <!-- Content Section - Add mobile spacing -->

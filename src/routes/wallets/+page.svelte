@@ -4,6 +4,7 @@
     import { session } from '$lib/stores/session';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { notifications } from '$lib/stores/notifications';
+    import { goto } from '$app/navigation';
     
     console.log('Wallets page mounted');
 
@@ -250,18 +251,29 @@
     // Add this helper function to refresh balance
     async function refreshBalance() {
         try {
+            // Check session before fetching
+            if (!await checkAndClearSession()) return;
+
             const response = await fetch(`${PUBLIC_API_URL}/api/user/profile`, {
                 headers: {
                     'Authorization': `Bearer ${$session.token}`
                 }
             });
             
+            if (!response.ok) {
+                if (response.status === 401) {
+                    await checkAndClearSession();
+                    return;
+                }
+            }
+
             if (response.ok) {
                 const userData = await response.json();
                 session.updateProfile(userData);
             }
         } catch (error) {
             console.error('Failed to refresh balance:', error);
+            await checkAndClearSession();
         }
     }
 
@@ -321,18 +333,29 @@
     // Add this function to refresh wallet data
     async function refreshWalletData() {
         try {
+            // Check session before fetching
+            if (!await checkAndClearSession()) return;
+
             const response = await fetch(`${PUBLIC_API_URL}/api/user/wallet`, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${$session.token}`
                 }
             });
             
+            if (!response.ok) {
+                if (response.status === 401) {
+                    await checkAndClearSession();
+                    return;
+                }
+            }
+
             if (response.ok) {
                 const data = await response.json();
                 session.updateWallet(data.wallet);
             }
         } catch (error) {
             console.error('Failed to refresh wallet data:', error);
+            await checkAndClearSession();
         }
     }
 
@@ -391,6 +414,9 @@
     // Add these fetch functions
     async function fetchDeposits() {
         try {
+            // Check session before fetching
+            if (!await checkAndClearSession()) return;
+
             isLoadingDeposits = true;
             const response = await fetch(`${PUBLIC_API_URL}/api/deposit/my-deposits`, {
                 headers: {
@@ -399,6 +425,10 @@
             });
 
             if (!response.ok) {
+                if (response.status === 401) {
+                    await checkAndClearSession();
+                    return;
+                }
                 throw new Error('Failed to fetch deposits');
             }
 
@@ -407,6 +437,7 @@
         } catch (error: any) {
             console.error('Error fetching deposits:', error);
             notifications.error(error.message || 'Failed to load deposits');
+            await checkAndClearSession();
         } finally {
             isLoadingDeposits = false;
         }
@@ -449,6 +480,9 @@
     // Add this function to fetch withdrawals
     async function fetchWithdrawals() {
         try {
+            // Check session before fetching
+            if (!await checkAndClearSession()) return;
+
             isLoadingWithdrawals = true;
             const response = await fetch(`${PUBLIC_API_URL}/api/withdrawal/my-withdrawals`, {
                 headers: {
@@ -456,24 +490,54 @@
                 }
             });
 
-            if (!response.ok) throw new Error('Failed to fetch withdrawals');
+            if (!response.ok) {
+                if (response.status === 401) {
+                    await checkAndClearSession();
+                    return;
+                }
+                throw new Error('Failed to fetch withdrawals');
+            }
+
             withdrawals = await response.json();
         } catch (error) {
             console.error('Error fetching withdrawals:', error);
+            await checkAndClearSession();
         } finally {
             isLoadingWithdrawals = false;
         }
     }
 
+    // Add session check to your data fetching functions
+    async function checkAndClearSession() {
+        // Check if user is logged in
+        if (!$session.token || !$session.user) {
+            // Clear all session data
+            session.clear();
+            // Clear localStorage
+            localStorage.removeItem('token');
+            // Redirect to home page
+            goto('/');
+            return false;
+        }
+        return true;
+    }
+
+    // Update your onMount function
     onMount(async () => {
         try {
-            // Fetch both deposits and withdrawals when component mounts
+            // First check session
+            const isAuthenticated = await checkAndClearSession();
+            if (!isAuthenticated) return;
+
+            // Only fetch data if user is authenticated
             await Promise.all([
                 fetchDeposits(),
                 fetchWithdrawals()
             ]);
         } catch (error: any) {
             console.error('Error loading transaction history:', error);
+            // If there's an error, also check session
+            await checkAndClearSession();
         }
     });
 
@@ -669,7 +733,7 @@
                         on:click={handleWithdraw}
                         disabled={!withdrawAmount || !withdrawAddress}
                     >
-                        Submit Withdrawal
+                        Withdrawal
                     </button>
                 </div>
 
@@ -982,7 +1046,7 @@
                             disabled={!depositAmount || depositAmount < 50}
                             on:click={handleManualDeposit}
                         >
-                            Submit Deposit
+                            Deposit
                         </button>
 
                         <div class="text-xs text-gray-500 text-center">

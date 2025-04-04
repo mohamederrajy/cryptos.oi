@@ -33,7 +33,7 @@
     let searchQuery = '';
     let selectedCategory = 'All';
     let currentPage = 1;
-    let itemsPerPage = 10;
+    let itemsPerPage = 20;
 
     // Categories with modern design
     const categories = [
@@ -73,7 +73,7 @@
         loadedImages.add(crypto.symbol);
     }
 
-    // Function to fetch data from CoinGecko
+    // Update the fetchCoinGeckoData function
     async function fetchCoinGeckoData() {
         try {
             const response = await fetch(
@@ -81,11 +81,10 @@
                 new URLSearchParams({
                     vs_currency: 'usd',
                     order: 'market_cap_desc',
-                    per_page: '250',
+                    per_page: '100', // Increased from 8 to 100 coins
                     page: '1',
-                    sparkline: 'true',
-                    price_change_percentage: '24h',
-                    locale: 'en'
+                    sparkline: 'false',
+                    price_change_percentage: '24h'
                 })
             );
             
@@ -99,20 +98,20 @@
                 logo: coin.image,
                 price: coin.current_price,
                 change24h: coin.price_change_percentage_24h || 0,
-                marketCap: coin.market_cap,
-                volume24h: coin.total_volume,
+                marketCap: coin.market_cap || 0,
+                volume24h: coin.total_volume || 0,
                 volumeChange24h: coin.price_change_percentage_24h || 0,
-                rank: coin.market_cap_rank,
-                ath: coin.ath,
-                athChange: coin.ath_change_percentage,
-                sparkline: coin.sparkline_in_7d?.price || [],
+                rank: coin.market_cap_rank || 0,
+                ath: coin.ath || 0,
+                athChange: coin.ath_change_percentage || 0,
+                sparkline: [],
                 source: 'coingecko',
                 sourceLabel: 'CoinGecko',
                 isActive: true,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 _id: coin.id,
-                imageUrl: coin.image // Use the direct image URL from CoinGecko
+                imageUrl: coin.image
             }));
         } catch (error) {
             console.error('CoinGecko fetch error:', error);
@@ -132,45 +131,25 @@
         }
     }
 
-    // Update the mergeCryptoData function
+    // Update the mergeCryptoData function to handle backend coins at the end
     function mergeCryptoData(backendData: Cryptocurrency[], geckoData: any[]) {
-        const mergedData = new Map();
+        // First, process CoinGecko data
+        const geckoCoins = geckoData.map(coin => ({
+            ...coin,
+            source: 'coingecko',
+            sourceLabel: 'CoinGecko'
+        }));
 
-        // Add backend data first
-        backendData.forEach(coin => {
-            mergedData.set(coin.symbol.toLowerCase(), {
-                ...coin,
-                source: 'backend',
-                sourceLabel: 'Internal',
-                imageUrl: null // We'll construct the full URL in the template
-            });
-        });
+        // Then, process backend data
+        const backendCoins = backendData.map(coin => ({
+            ...coin,
+            source: 'backend',
+            sourceLabel: 'Internal',
+            imageUrl: coin.logo ? `${PUBLIC_API_URL}${coin.logo}` : defaultCryptoImage
+        }));
 
-        // Merge with CoinGecko data
-        geckoData.forEach(coin => {
-            const existingCoin = mergedData.get(coin.symbol.toLowerCase());
-            if (existingCoin) {
-                // Update existing coin with additional CoinGecko data
-                mergedData.set(coin.symbol.toLowerCase(), {
-                    ...existingCoin,
-                    geckoId: coin.geckoId,
-                    sparkline: coin.sparkline,
-                    rank: coin.rank,
-                    ath: coin.ath,
-                    athChange: coin.athChange
-                });
-            } else {
-                // Add new coin from CoinGecko
-                mergedData.set(coin.symbol.toLowerCase(), {
-                    _id: coin.geckoId,
-                    ...coin,
-                    source: 'coingecko',
-                    sourceLabel: 'CoinGecko'
-                });
-            }
-        });
-
-        return Array.from(mergedData.values());
+        // Combine the data with backend coins at the end
+        return [...geckoCoins, ...backendCoins];
     }
 
     // Add image preloading

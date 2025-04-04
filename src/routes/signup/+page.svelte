@@ -243,15 +243,15 @@
 <div class="flex flex-col lg:flex-row min-h-screen overflow-y-auto">
     <!-- Left Section - Update overflow handling -->
     <div class="w-full lg:w-1/2 bg-gradient-to-br from-[#3772FF] to-[#2952cc] p-3 sm:p-4 lg:p-8 flex flex-col relative">
-        <!-- Logo Section - Adjust mobile size -->
+        <!-- Logo Section - Update with link -->
         <div class="relative mb-3 sm:mb-4 lg:mb-12">
-            <div class="flex items-center">
+            <a href="/" class="flex items-center hover:opacity-90 transition-opacity">
                 <img 
                     src="/images/LOGwOOC.png" 
                     alt="Logo" 
                     class="h-7 sm:h-8 lg:h-14 object-contain" 
                 />
-            </div>
+            </a>
         </div>
         
         <!-- Content Section - Improve mobile spacing -->

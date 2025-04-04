@@ -22,38 +22,64 @@
         total = limitPrice * amount;
     }
 
-    // Available pairs with icons
-    const tradingPairs = [
+    // Add these interfaces for TypeScript
+    interface PriceData {
+        symbol: string;
+        lastPrice: string;
+        priceChange: string;
+        priceChangePercent: string;
+        highPrice: string;
+        lowPrice: string;
+        volume: string;
+    }
+
+    // First, update the interface for trading pairs to include price data
+    interface TradingPair {
+        symbol: string;
+        displaySymbol: string;
+        name: string;
+        icon: string;
+        lastPrice?: string;
+        priceChangePercent?: string;
+    }
+
+    // Update the trading pairs type
+    const tradingPairs: TradingPair[] = [
         { 
-            symbol: 'BTC/USDT',
+            symbol: 'BTCUSDT',
+            displaySymbol: 'BTC/USDT',
             name: 'Bitcoin',
             icon: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png'
         },
         { 
-            symbol: 'ETH/USDT',
+            symbol: 'ETHUSDT',
+            displaySymbol: 'ETH/USDT',
             name: 'Ethereum',
             icon: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png'
         },
         { 
-            symbol: 'BNB/USDT',
+            symbol: 'BNBUSDT',
+            displaySymbol: 'BNB/USDT',
             name: 'BNB',
             icon: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png'
         },
         { 
-            symbol: 'SOL/USDT',
+            symbol: 'SOLUSDT',
+            displaySymbol: 'SOL/USDT',
             name: 'Solana',
             icon: 'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png'
         }
     ];
 
-    // Current pair info
+    // Update current pair with real data structure
     let currentPair = {
-        symbol: 'BTC/USDT',
-        lastPrice: '104090.6829',
-        change: '-6.477',
-        low: '101266.41',
-        high: '111308.0694',
-        volume: '60,488,272.93'
+        symbol: 'BTCUSDT',
+        displaySymbol: 'BTC/USDT',
+        lastPrice: '0',
+        change: '0',
+        low: '0',
+        high: '0',
+        volume: '0'
     };
 
     // Order book data
@@ -77,6 +103,66 @@
     let chartContainer: HTMLElement;
     let widget: any;
     let chartError: string | null = null;
+
+    let ws: WebSocket | null = null;
+
+    // Update the fetchPrices function to use WebSocket
+    function initializeWebSocket() {
+        try {
+            // Close existing connection if any
+            if (ws) {
+                ws.close();
+            }
+
+            // Create new WebSocket connection
+            ws = new WebSocket('wss://stream.binance.com:9443/ws/!ticker@arr');
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    // Update current pair data if it matches
+                    const currentPairData = data.find((item: any) => item.s === currentPair.symbol);
+                    if (currentPairData) {
+                        currentPair = {
+                            ...currentPair,
+                            lastPrice: parseFloat(currentPairData.c).toFixed(2),
+                            change: parseFloat(currentPairData.P).toFixed(2),
+                            low: parseFloat(currentPairData.l).toFixed(2),
+                            high: parseFloat(currentPairData.h).toFixed(2),
+                            volume: parseFloat(currentPairData.v).toFixed(2),
+                        };
+                    }
+
+                    // Update trading pairs with latest prices
+                    tradingPairs.forEach(pair => {
+                        const pairData = data.find((item: any) => item.s === pair.symbol);
+                        if (pairData) {
+                            pair.lastPrice = parseFloat(pairData.c).toFixed(2);
+                            pair.priceChangePercent = parseFloat(pairData.P).toFixed(2);
+                        }
+                    });
+                } catch (error) {
+                    console.error('WebSocket message error:', error);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                notifications.error('Failed to connect to price feed');
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket connection closed');
+                // Try to reconnect after 5 seconds
+                setTimeout(initializeWebSocket, 5000);
+            };
+
+        } catch (error) {
+            console.error('WebSocket initialization error:', error);
+            notifications.error('Failed to initialize price feed');
+        }
+    }
 
     async function initTradingView() {
         try {
@@ -186,17 +272,34 @@
         }
     }
 
+    // Update the select pair function
     function selectPair(pair: typeof tradingPairs[0]) {
         currentPair.symbol = pair.symbol;
+        currentPair.displaySymbol = pair.displaySymbol;
         isDropdownOpen = false;
+
+        // Update TradingView widget symbol
+        if (widget) {
+            widget.setSymbol(`BINANCE:${pair.symbol}`, {
+                interval: "D"
+            });
+        }
     }
 
+    // Update onMount and onDestroy
     onMount(() => {
-        // Delay initialization slightly to ensure DOM is ready
+        // Initialize WebSocket connection
+        initializeWebSocket();
+
+        // Initialize TradingView
         setTimeout(initTradingView, 0);
     });
 
     onDestroy(() => {
+        // Clean up WebSocket connection
+        if (ws) {
+            ws.close();
+        }
         if (widget) {
             try {
                 widget.remove();
@@ -224,10 +327,10 @@
                             alt={currentPair.symbol}
                             class="w-8 h-8"
                         />
-                        <span class="font-medium">{currentPair.symbol}</span>
+                        <span class="font-medium">{currentPair.displaySymbol}</span>
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
                     </button>
 
                     {#if isDropdownOpen}
@@ -237,11 +340,19 @@
                                     class="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 first:rounded-t-xl last:rounded-b-xl"
                                     on:click={() => selectPair(pair)}
                                 >
-                                    <img src={pair.icon} alt={pair.symbol} class="w-8 h-8"/>
-                                    <div>
+                                    <img src={pair.icon} alt={pair.displaySymbol} class="w-8 h-8"/>
+                                    <div class="flex-1">
                                         <div class="font-medium text-gray-900">{pair.name}</div>
-                                        <div class="text-sm text-gray-500">{pair.symbol}</div>
+                                        <div class="text-sm text-gray-500">{pair.displaySymbol}</div>
                                     </div>
+                                    {#if pair.lastPrice}
+                                        <div class="text-right">
+                                            <div class="font-medium">${pair.lastPrice}</div>
+                                            <div class="text-sm" class:text-green-500={parseFloat(pair.priceChangePercent) >= 0} class:text-red-500={parseFloat(pair.priceChangePercent) < 0}>
+                                                {parseFloat(pair.priceChangePercent) >= 0 ? '+' : ''}{pair.priceChangePercent}%
+                                            </div>
+                                        </div>
+                                    {/if}
                                 </button>
                             {/each}
                         </div>
@@ -256,7 +367,9 @@
                     </div>
                     <div>
                         <div class="text-sm text-white/80">24h Change</div>
-                        <div class="text-lg font-semibold text-red-400">{currentPair.change}%</div>
+                        <div class="text-lg font-semibold" class:text-green-400={parseFloat(currentPair.change) >= 0} class:text-red-400={parseFloat(currentPair.change) < 0}>
+                            {currentPair.change}%
+                        </div>
                     </div>
                     <div>
                         <div class="text-sm text-white/80">24h High</div>
@@ -281,8 +394,8 @@
             <!-- Chart Section -->
             <div class="lg:col-span-3 bg-white rounded-xl shadow-sm overflow-hidden">
                 <div class="relative h-[600px]">
-                    {#if isLoading}
-                        <div class="absolute inset-0 flex items-center justify-center bg-white">
+                {#if isLoading}
+                    <div class="absolute inset-0 flex items-center justify-center bg-white">
                             <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
                         </div>
                     {/if}
@@ -300,9 +413,9 @@
                                 >
                                     Retry Loading Chart
                                 </button>
-                            </div>
                         </div>
-                    {/if}
+                    </div>
+                {/if}
                     <div id="tradingview_widget" class="h-full w-full"></div>
                 </div>
             </div>
@@ -318,18 +431,18 @@
                             <span>{parseFloat(ask.price).toFixed(2)}</span>
                             <span>{ask.amount}</span>
                             <span>{parseFloat(ask.total).toFixed(2)}</span>
+                                </div>
+                            {/each}
                         </div>
-                    {/each}
-                </div>
 
-                <!-- Current Price -->
+                        <!-- Current Price -->
                 <div class="text-center py-2 font-semibold text-lg border-y border-gray-100">
                     {parseFloat(currentPair.lastPrice).toFixed(2)} USDT
-                </div>
+                        </div>
 
                 <!-- Bids -->
                 <div class="space-y-1 mt-4">
-                    {#each orderBookData.bids as bid}
+                            {#each orderBookData.bids as bid}
                         <div class="grid grid-cols-3 text-sm py-1 text-green-500">
                             <span>{parseFloat(bid.price).toFixed(2)}</span>
                             <span>{bid.amount}</span>
@@ -362,88 +475,88 @@
                         class="px-4 py-2 rounded-lg font-medium transition-colors {orderMode === 'limit' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'}"
                         on:click={() => orderMode = 'limit'}
                     >
-                        Limit
-                    </button>
+                            Limit
+                        </button>
                     <button 
                         class="px-4 py-2 rounded-lg font-medium transition-colors {orderMode === 'market' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'}"
                         on:click={() => orderMode = 'market'}
                     >
-                        Market
-                    </button>
+                            Market
+                        </button>
+                    </div>
                 </div>
-            </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <!-- Price Input -->
-                <div>
+                    <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Price</label>
-                    <div class="relative">
-                        <input 
-                            type="number"
-                            bind:value={limitPrice}
+                        <div class="relative">
+                            <input 
+                                type="number" 
+                                bind:value={limitPrice}
                             class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             placeholder="0.00"
                             disabled={!$session.isAuthenticated || orderMode === 'market'}
                         />
                         <span class="absolute right-3 top-2.5 text-gray-500">USDT</span>
                     </div>
-                </div>
+                    </div>
 
                 <!-- Amount Input -->
-                <div>
+                    <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Amount</label>
-                    <div class="relative">
-                        <input 
-                            type="number"
-                            bind:value={amount}
+                        <div class="relative">
+                            <input 
+                                type="number" 
+                                bind:value={amount}
                             class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             placeholder="0.00"
-                            disabled={!$session.isAuthenticated}
-                        />
+                                disabled={!$session.isAuthenticated}
+                            />
                         <span class="absolute right-3 top-2.5 text-gray-500">BTC</span>
                     </div>
-                </div>
+                    </div>
 
                 <!-- Total Input -->
-                <div>
+                    <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Total</label>
-                    <div class="relative">
-                        <input 
-                            type="number"
-                            bind:value={total}
+                        <div class="relative">
+                            <input 
+                                type="number" 
+                                bind:value={total}
                             class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             placeholder="0.00"
-                            disabled={!$session.isAuthenticated}
-                        />
+                                disabled={!$session.isAuthenticated}
+                            />
                         <span class="absolute right-3 top-2.5 text-gray-500">USDT</span>
                     </div>
-                </div>
+                    </div>
 
                 <!-- Action Button -->
                 <div class="flex items-end">
-                    {#if $session.isAuthenticated}
-                        <button 
+                        {#if $session.isAuthenticated}
+                            <button 
                             class="w-full py-2 rounded-lg font-medium transition-colors disabled:opacity-50 {orderType === 'buy' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'} text-white"
-                            on:click={handlePlaceOrder}
-                            disabled={isPlacingOrder}
-                        >
-                            {#if isPlacingOrder}
-                                <div class="flex items-center justify-center">
-                                    <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                                    Processing...
-                                </div>
-                            {:else}
+                                on:click={handlePlaceOrder}
+                                disabled={isPlacingOrder}
+                            >
+                                {#if isPlacingOrder}
+                                    <div class="flex items-center justify-center">
+                                        <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                        Processing...
+                                    </div>
+                                {:else}
                                 {orderType === 'buy' ? 'Buy' : 'Sell'} {currentPair.symbol.split('/')[0]}
-                            {/if}
-                        </button>
-                    {:else}
-                        <button 
+                                {/if}
+                            </button>
+                        {:else}
+                            <button 
                             class="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
-                            on:click={() => window.location.href = '/account/login'}
-                        >
+                                on:click={() => window.location.href = '/account/login'}
+                            >
                             Login to Trade
-                        </button>
-                    {/if}
+                            </button>
+                        {/if}
                 </div>
             </div>
         </div>

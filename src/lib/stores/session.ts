@@ -100,6 +100,13 @@ function createSessionStore() {
                     wallet
                 } : null
             }));
+        },
+        clear() {
+            this.update(state => ({
+                token: null,
+                user: null,
+                isAuthenticated: false
+            }));
         }
     };
 }
