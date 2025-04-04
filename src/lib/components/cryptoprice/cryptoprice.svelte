@@ -2,7 +2,6 @@
     import { onMount } from 'svelte';
     
     type CryptoData = {
-        id: string;
         symbol: string;
         name: string;
         current_price: number;
@@ -13,32 +12,82 @@
         };
     };
 
-    function generateSparklineData(basePrice: number, volatility: number, trend: 'up' | 'down' | 'neutral' = 'neutral') {
-        const points = 150; // More points for ultra-smooth lines
-        return Array(points).fill(0).map((_, i) => {
-            const progress = i / points;
-            const trendFactor = trend === 'up' ? Math.pow(progress, 1.5) * volatility 
-                            : trend === 'down' ? -Math.pow(progress, 1.5) * volatility 
-                            : 0;
-            const randomness = (Math.sin(i * 0.3) + Math.cos(i * 0.2)) * volatility * 0.3;
-            return basePrice + trendFactor + randomness;
-        });
-    }
+    // Map of crypto symbols to their names and images
+    const cryptoInfo = {
+        'BTCUSDT': { 
+            name: 'Bitcoin', 
+            image: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png'
+        },
+        'ETHUSDT': { 
+            name: 'Ethereum', 
+            image: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png'
+        },
+        'BNBUSDT': { 
+            name: 'Binance Coin', 
+            image: 'https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png'
+        },
+        'BCHUSDT': { 
+            name: 'Bitcoin Cash', 
+            image: 'https://assets.coingecko.com/coins/images/780/large/bitcoin-cash-circle.png'
+        },
+        'TONUSDT': { 
+            name: 'Toncoin', 
+            image: 'https://assets.coingecko.com/coins/images/17980/large/ton_symbol.png'
+        },
+        'TRXUSDT': { 
+            name: 'TRON', 
+            image: 'https://assets.coingecko.com/coins/images/1094/large/tron-logo.png'
+        },
+        'MATICUSDT': { 
+            name: 'Polygon', 
+            image: 'https://assets.coingecko.com/coins/images/4713/large/matic-token-icon.png'
+        },
+        'SHIBUSDT': { 
+            name: 'Shiba Inu', 
+            image: 'https://assets.coingecko.com/coins/images/11939/large/shiba.png'
+        }
+    };
 
-    function createSparkline(prices: number[], isPositive: boolean) {
-        if (!prices || prices.length === 0) return '';
+    let cryptoData: CryptoData[] = [];
+    let selectedFilter = 'all';
+    let isLoading = true;
+    let error: string | null = null;
+
+    const filters = [
+        { id: 'all', label: 'All' },
+        { id: 'gainers', label: 'Top Gainers' },
+        { id: 'losers', label: 'Top Losers' }
+    ];
+
+    // Add these type definitions
+    type SparklineResult = {
+        line: string;
+        gradient: string;
+    };
+
+    type BinanceTickerData = {
+        symbol: string;
+        lastPrice: string;
+        priceChangePercent: string;
+    };
+
+    // Add the createSparkline function
+    function createSparkline(prices: number[], isPositive: boolean): SparklineResult {
+        if (!prices || prices.length === 0) {
+            return { line: '', gradient: '' };
+        }
         
         const min = Math.min(...prices);
         const max = Math.max(...prices);
         const range = max - min || 1;
         
-        const height = 60; // Reduced height for cleaner look
-        const width = 160; // Adjusted width
+        const height = 60;
+        const width = 160;
         
-        // Create smoother curve points
+        // Create points for the sparkline
         const points = prices.map((price, i) => {
             const x = (i / (prices.length - 1)) * width;
-            const y = height - ((price - min) / range) * height * 0.8; // 80% height utilization
+            const y = height - ((price - min) / range) * height * 0.8;
             return { x, y };
         });
 
@@ -58,180 +107,67 @@
         };
     }
 
-    // Extended mock data with more cryptocurrencies
-    const allCryptoData = [
-        // Original 8
-        {
-            id: "bitcoin",
-            name: "Bitcoin",
-            symbol: "BTC",
-            current_price: 45123.56,
-            price_change_percentage_24h: -0.92,
-            image: "https://assets.coingecko.com/coins/images/1/large/bitcoin.png",
-            sparkline_in_7d: { 
-                price: generateSparklineData(45000, 1000, 'down')
-            }
-        },
-        {
-            id: "ethereum",
-            name: "Ethereum",
-            symbol: "ETH",
-            current_price: 3224.22,
-            price_change_percentage_24h: 0.89,
-            image: "https://assets.coingecko.com/coins/images/279/large/ethereum.png",
-            sparkline_in_7d: { price: Array(24).fill(0).map((_, i) => 3200 + Math.cos(i) * 100) }
-        },
-        {
-            id: "binancecoin",
-            name: "Binance Coin",
-            symbol: "BNB",
-            current_price: 735.92,
-            price_change_percentage_24h: -0.32,
-            image: "https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png",
-            sparkline_in_7d: { price: Array(24).fill(0).map((_, i) => 730 + Math.sin(i) * 20) }
-        },
-        {
-            id: "bitcoin-cash",
-            name: "Bitcoin Cash",
-            symbol: "BCH",
-            current_price: 429.00,
-            price_change_percentage_24h: -0.28,
-            image: "https://assets.coingecko.com/coins/images/780/large/bitcoin-cash-circle.png",
-            sparkline_in_7d: { price: Array(24).fill(0).map((_, i) => 425 + Math.cos(i) * 10) }
-        },
-        {
-            id: "toncoin",
-            name: "Toncoin",
-            symbol: "TON",
-            current_price: 4.81,
-            price_change_percentage_24h: -2.28,
-            image: "https://assets.coingecko.com/coins/images/17980/large/ton_symbol.png",
-            sparkline_in_7d: { price: Array(24).fill(0).map((_, i) => 4.8 + Math.sin(i) * 0.2) }
-        },
-        {
-            id: "tron",
-            name: "TRON",
-            symbol: "TRX",
-            current_price: 0.2515,
-            price_change_percentage_24h: 2.19,
-            image: "https://assets.coingecko.com/coins/images/1094/large/tron-logo.png",
-            sparkline_in_7d: { price: Array(24).fill(0).map((_, i) => 0.25 + Math.cos(i) * 0.01) }
-        },
-        {
-            id: "matic-network",
-            name: "Polygon",
-            symbol: "MATIC",
-            current_price: 0.6994,
-            price_change_percentage_24h: 0.74,
-            image: "https://assets.coingecko.com/coins/images/4713/large/matic-token-icon.png",
-            sparkline_in_7d: { price: Array(24).fill(0).map((_, i) => 0.69 + Math.sin(i) * 0.02) }
-        },
-        {
-            id: "shiba-inu",
-            name: "Shiba Inu",
-            symbol: "SHIB",
-            current_price: 0.00001858,
-            price_change_percentage_24h: -0.22,
-            image: "https://assets.coingecko.com/coins/images/11939/large/shiba.png",
-            sparkline_in_7d: { price: Array(24).fill(0).map((_, i) => 0.000018 + Math.cos(i) * 0.000001) }
-        },
-        // Additional cryptocurrencies for variety
-        {
-            id: "cardano",
-            name: "Cardano",
-            symbol: "ADA",
-            current_price: 0.89,
-            price_change_percentage_24h: 5.23,
-            image: "https://assets.coingecko.com/coins/images/975/large/cardano.png",
-            sparkline_in_7d: { price: Array(24).fill(0).map((_, i) => 0.85 + Math.sin(i) * 0.05) }
-        },
-        {
-            id: "solana",
-            name: "Solana",
-            symbol: "SOL",
-            current_price: 125.45,
-            price_change_percentage_24h: 7.82,
-            image: "https://assets.coingecko.com/coins/images/4128/large/solana.png",
-            sparkline_in_7d: { price: Array(24).fill(0).map((_, i) => 120 + Math.cos(i) * 10) }
-        },
-        {
-            id: "ripple",
-            name: "XRP",
-            symbol: "XRP",
-            current_price: 0.56,
-            price_change_percentage_24h: -4.32,
-            image: "https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png",
-            sparkline_in_7d: { price: Array(24).fill(0).map((_, i) => 0.55 + Math.sin(i) * 0.03) }
-        },
-        {
-            id: "dogecoin",
-            name: "Dogecoin",
-            symbol: "DOGE",
-            current_price: 0.078,
-            price_change_percentage_24h: -3.45,
-            image: "https://assets.coingecko.com/coins/images/5/large/dogecoin.png",
-            sparkline_in_7d: { price: Array(24).fill(0).map((_, i) => 0.075 + Math.cos(i) * 0.005) }
-        },
-        {
-            id: "polkadot",
-            name: "Polkadot",
-            symbol: "DOT",
-            current_price: 7.23,
-            price_change_percentage_24h: 6.78,
-            image: "https://assets.coingecko.com/coins/images/12171/large/polkadot.png",
-            sparkline_in_7d: { price: Array(24).fill(0).map((_, i) => 7 + Math.sin(i) * 0.5) }
-        },
-        {
-            id: "avalanche",
-            name: "Avalanche",
-            symbol: "AVAX",
-            current_price: 35.67,
-            price_change_percentage_24h: 8.91,
-            image: "https://assets.coingecko.com/coins/images/12559/large/coin-round-red.png",
-            sparkline_in_7d: { price: Array(24).fill(0).map((_, i) => 34 + Math.cos(i) * 2) }
+    // Update the fetchBinanceData function with proper typing
+    async function fetchBinanceData() {
+        try {
+            isLoading = true;
+            error = null;
+
+            // Fetch 24hr ticker price change
+            const tickerResponse = await fetch('https://api.binance.com/api/v3/ticker/24hr');
+            if (!tickerResponse.ok) throw new Error('Failed to fetch Binance data');
+            const tickerData: BinanceTickerData[] = await tickerResponse.json();
+
+            // Fetch kline/candlestick data for sparklines (last 7 days)
+            const sparklineData = await Promise.all(
+                Object.keys(cryptoInfo).map(async (symbol) => {
+                    const response = await fetch(
+                        `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=7`
+                    );
+                    if (!response.ok) throw new Error(`Failed to fetch sparkline data for ${symbol}`);
+                    return response.json();
+                })
+            );
+
+            // Process and combine the data
+            cryptoData = Object.keys(cryptoInfo).map((symbol, index) => {
+                const ticker = tickerData.find((t: BinanceTickerData) => t.symbol === symbol);
+                if (!ticker) throw new Error(`No ticker data found for ${symbol}`);
+
+                const prices = sparklineData[index].map((candle: any[]) => parseFloat(candle[4]));
+
+                return {
+                    symbol: symbol.replace('USDT', ''),
+                    name: cryptoInfo[symbol as keyof typeof cryptoInfo].name,
+                    image: cryptoInfo[symbol as keyof typeof cryptoInfo].image,
+                    current_price: parseFloat(ticker.lastPrice),
+                    price_change_percentage_24h: parseFloat(ticker.priceChangePercent),
+                    sparkline_in_7d: {
+                        price: prices
+                    }
+                };
+            });
+
+        } catch (err) {
+            console.error('Error fetching Binance data:', err);
+            error = err instanceof Error ? err.message : 'Failed to fetch data';
+        } finally {
+            isLoading = false;
         }
-    ];
-
-    let cryptoData = [...allCryptoData.slice(0, 8)]; // Initial 8 coins
-    let selectedFilter = 'all';
-    let isLoading = true;
-    let error = null;
-
-    const filters = [
-        { id: 'all', label: 'All' },
-        { id: 'gainers', label: 'Top Gainers' },
-        { id: 'losers', label: 'Top Losers' },
-        { id: 'recent', label: 'Recently Added' }
-    ];
-
-    const CRYPTO_IDS = [
-        'bitcoin',
-        'ethereum',
-        'binancecoin',
-        'bitcoin-cash',
-        'toncoin',
-        'tron',
-        'matic-network',
-        'shiba-inu'
-    ];
+    }
 
     function getFilteredData(filter: string) {
         switch(filter) {
             case 'gainers':
-                return [...allCryptoData]
+                return [...cryptoData]
                     .sort((a, b) => b.price_change_percentage_24h - a.price_change_percentage_24h)
                     .slice(0, 8);
             case 'losers':
-                return [...allCryptoData]
+                return [...cryptoData]
                     .sort((a, b) => a.price_change_percentage_24h - b.price_change_percentage_24h)
                     .slice(0, 8);
-            case 'recent':
-                // Shuffle array for "recently added" to simulate random new listings
-                return [...allCryptoData]
-                    .sort(() => Math.random() - 0.5)
-                    .slice(0, 8);
             default:
-                return allCryptoData.slice(0, 8);
+                return cryptoData;
         }
     }
 
@@ -240,43 +176,16 @@
         cryptoData = getFilteredData(filter);
     }
 
-    async function fetchCryptoPrices() {
-        try {
-            isLoading = true;
-            error = null;
-            
-            const response = await fetch(
-                'https://api.coingecko.com/api/v3/coins/markets?' +
-                new URLSearchParams({
-                    vs_currency: 'usd',
-                    ids: allCryptoData.map(coin => coin.id).join(','),
-                    order: 'market_cap_desc',
-                    per_page: '20',
-                    page: '1',
-                    sparkline: 'true'
-                })
-            );
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch data');
-            }
-
-            const data = await response.json();
-            // Update allCryptoData with real data if available
-            if (data.length >= 8) {
-                cryptoData = getFilteredData(selectedFilter);
-            }
-        } catch (err) {
-            console.error('Error fetching crypto data:', err);
-            cryptoData = getFilteredData(selectedFilter);
-        } finally {
-            isLoading = false;
-        }
+    function handleImageError(event: Event) {
+        const img = event.target as HTMLImageElement;
+        img.src = 'https://bin.bnbstatic.com/image/admin_mgs_image_upload/20201110/34a8ed25-ef3c-4f3c-a4f7-0d9e036ec47b.png';
+        img.onerror = null;
     }
 
     onMount(() => {
-        fetchCryptoPrices();
-        const interval = setInterval(fetchCryptoPrices, 30000);
+        fetchBinanceData();
+        // Update prices every 10 seconds
+        const interval = setInterval(fetchBinanceData, 10000);
         return () => clearInterval(interval);
     });
 
@@ -316,7 +225,7 @@
                 <p class="text-red-500 text-sm lg:text-base">Error: {error}</p>
                 <button 
                     class="mt-3 lg:mt-4 px-4 py-2 text-sm lg:text-base bg-[#3772FF] text-white rounded-lg hover:bg-[#2952cc]"
-                    on:click={fetchCryptoPrices}
+                    on:click={fetchBinanceData}
                 >
                     Try Again
                 </button>
@@ -324,11 +233,16 @@
         {:else}
             <!-- Crypto Grid - Responsive layout -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-                {#each cryptoData as crypto, index (crypto.id)}
+                {#each cryptoData as crypto, index (crypto.symbol)}
                     <div class="bg-white rounded-xl lg:rounded-2xl p-4 lg:p-6 shadow-sm hover:shadow-md transition-all duration-200">
                         <!-- Crypto Header -->
                         <div class="flex items-center gap-3 lg:gap-4 mb-3 lg:mb-4">
-                            <img src={crypto.image} alt={crypto.name} class="w-8 h-8 lg:w-10 lg:h-10">
+                            <img 
+                                src={crypto.image} 
+                                alt={crypto.name} 
+                                class="w-8 h-8 lg:w-10 lg:h-10 object-contain rounded-full bg-gray-50"
+                                on:error={handleImageError}
+                            >
                             <div>
                                 <h3 class="font-medium text-sm lg:text-base text-gray-900">{crypto.name}</h3>
                                 <span class="text-xs lg:text-sm text-gray-500">{crypto.symbol}</span>
@@ -374,7 +288,7 @@
                                         <!-- Simplified gradient -->
                                         <defs>
                                             <linearGradient
-                                                id="gradient-{crypto.id}"
+                                                id="gradient-{crypto.symbol}"
                                                 x1="0"
                                                 y1="0"
                                                 x2="0"
@@ -396,7 +310,7 @@
                                         <!-- Area fill -->
                                         <path
                                             d={createSparkline(crypto.sparkline_in_7d.price, crypto.price_change_percentage_24h >= 0).gradient}
-                                            fill="url(#gradient-{crypto.id})"
+                                            fill="url(#gradient-{crypto.symbol})"
                                             class="transition-opacity duration-300"
                                         />
 

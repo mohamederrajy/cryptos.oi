@@ -1,8 +1,11 @@
 import { redirect } from '@sveltejs/kit';
 
 export const handle = async ({ event, resolve }) => {
-    // Protect all dashboard routes
-    if (event.url.pathname.startsWith('/dashboard')) {
+    // Protect all dashboard routes and other protected routes
+    const protectedRoutes = ['/dashboard', '/wallets', '/exchange', '/activities', '/profile'];
+    const isProtectedRoute = protectedRoutes.some(route => event.url.pathname.startsWith(route));
+
+    if (isProtectedRoute) {
         const token = event.cookies.get('authToken');
         const userCookie = event.cookies.get('user');
 
@@ -21,13 +24,13 @@ export const handle = async ({ event, resolve }) => {
 
         try {
             // Validate token format
-            if (!token.startsWith('Bearer ')) {
+            if (!token?.startsWith('Bearer ')) {
                 console.log('Invalid token format');
                 clearAndRedirect();
             }
 
             // Parse and validate user data
-            const user = JSON.parse(userCookie);
+            const user = JSON.parse(userCookie || '{}');
             if (!user || !user.email || user.email === 'undefined') {
                 console.log('Invalid user data');
                 clearAndRedirect();
@@ -44,4 +47,4 @@ export const handle = async ({ event, resolve }) => {
     }
 
     return await resolve(event);
-};
+}; 

@@ -66,39 +66,43 @@
     // Add this new interface and data
     const cryptocurrencies: Cryptocurrency[] = [
         {
-            symbol: 'USDT',
-            name: 'Tether',
-            icon: 'https://dynamic-assets.coinbase.com/41f6a93a3a222078c939115fc304a67c384886b7a9e6c15dcbfa6519dc45f6bb4a586e9c48535d099efa596dbf8a9dd72b05815bcd32ac650c50abb5391a5bd0/asset_icons/1f8489bb280fb0a0fd643c1161312ba49655040e9aaaced5f9ad3eeaf868eadc.png'
-        }
-    ];
-
-    const popularCryptos = [
-        {
             symbol: 'BTC',
             name: 'Bitcoin',
-            icon: '...'
+            icon: 'https://cryptologos.cc/logos/bitcoin-btc-logo.png'
         },
         {
             symbol: 'ETH',
             name: 'Ethereum',
-            icon: '...'
-        },
-        {
-            symbol: 'USDT',
-            name: 'Tether',
-            icon: '...'
+            icon: 'https://cryptologos.cc/logos/ethereum-eth-logo.png'
         },
         {
             symbol: 'BNB',
             name: 'Binance Coin',
-            icon: '...'
+            icon: 'https://cryptologos.cc/logos/bnb-bnb-logo.png'
         },
         {
-            symbol: 'LTC',
-            name: 'Litecoin',
-            icon: '...'
+            symbol: 'USDT',
+            name: 'Tether',
+            icon: 'https://cryptologos.cc/logos/tether-usdt-logo.png'
+        },
+        {
+            symbol: 'TRX',
+            name: 'TRON',
+            icon: 'https://cryptologos.cc/logos/tron-trx-logo.png'
+        },
+        {
+            symbol: 'USDC',
+            name: 'USD Coin',
+            icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
+        },
+        {
+            symbol: 'DOGE',
+            name: 'Dogecoin',
+            icon: 'https://cryptologos.cc/logos/dogecoin-doge-logo.png'
         }
     ];
+
+    const popularCryptos = ['BTC', 'ETH', 'BNB', 'USDT', 'TRX', 'USDC', 'DOGE'];
 
     let showCryptoDropdown = false;
 
@@ -295,7 +299,13 @@
 
     // Add network detection
     $: networkOptions = {
-        USDT: ['TRC20', 'ERC20', 'BEP20']
+        USDT: ['TRC20', 'ERC20', 'BEP20'],
+        BTC: ['BTC'],
+        ETH: ['ERC20'],
+        BNB: ['BEP20'],
+        TRX: ['TRC20'],
+        USDC: ['ERC20', 'BEP20'],
+        DOGE: ['DOGE']
     };
 
     $: availableNetworks = networkOptions[selectedCrypto.symbol] || ['BTC'];
@@ -720,7 +730,7 @@
                             <div class="p-2">
                                 <div class="text-xs font-medium text-gray-500 px-3 py-2">Popular Coins</div>
                                 <div class="grid grid-cols-1 gap-1">
-                                    {#each ['BTC', 'ETH', 'USDT', 'BNB', 'LTC'] as symbol}
+                                    {#each popularCryptos as symbol}
                                         {@const crypto = cryptocurrencies.find(c => c.symbol === symbol)}
                                         {#if crypto}
                                             <button

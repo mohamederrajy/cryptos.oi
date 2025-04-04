@@ -8,7 +8,7 @@ import { get } from 'svelte/store';
 export const load: PageLoad = async ({ fetch }) => {
     const sessionData = get(session);
     if (!sessionData.isAuthenticated) {
-        throw redirect(302, '/account/login');
+        throw redirect(302, '/login');
     }
 
     // Check for token first

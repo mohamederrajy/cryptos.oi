@@ -240,9 +240,9 @@
     </div>
 {/if}
 
-<div class="flex flex-col lg:flex-row min-h-screen">
-    <!-- Left Section - Update mobile spacing -->
-    <div class="w-full lg:w-1/2 bg-gradient-to-br from-[#3772FF] to-[#2952cc] p-3 sm:p-4 lg:p-8 flex flex-col relative overflow-y-auto lg:overflow-hidden">
+<div class="flex flex-col lg:flex-row min-h-screen overflow-y-auto">
+    <!-- Left Section - Update overflow handling -->
+    <div class="w-full lg:w-1/2 bg-gradient-to-br from-[#3772FF] to-[#2952cc] p-3 sm:p-4 lg:p-8 flex flex-col relative">
         <!-- Logo Section - Adjust mobile size -->
         <div class="relative mb-3 sm:mb-4 lg:mb-12">
             <div class="flex items-center">
@@ -336,8 +336,8 @@
         </div>
     </div>
 
-    <!-- Right Section - Improve form spacing -->
-    <div class="w-full lg:w-1/2 p-3 sm:p-4 lg:p-8 bg-gray-50/50 backdrop-blur-sm overflow-y-auto">
+    <!-- Right Section - Update overflow handling -->
+    <div class="w-full lg:w-1/2 p-3 sm:p-4 lg:p-8 bg-gray-50/50 backdrop-blur-sm">
         <div class="w-full max-w-md mx-auto space-y-4 sm:space-y-6">
             <!-- Form header adjustments -->
             <div class="text-center space-y-1 sm:space-y-2 lg:space-y-3">
@@ -947,13 +947,14 @@
 
     /* Add these styles */
     :global(html), :global(body) {
-        height: 100vh;
-        overflow: hidden;
+        height: 100%;
+        overflow-y: auto !important;
     }
 
     .overflow-y-auto {
         scrollbar-width: thin;
         scrollbar-color: #3772FF #f1f5f9;
+        -webkit-overflow-scrolling: touch;
     }
 
     .overflow-y-auto::-webkit-scrollbar {
@@ -1072,7 +1073,7 @@
     /* Update responsive styles */
     @media (max-width: 1024px) {
         :global(body) {
-            overflow-y: auto;
+            @apply overflow-y-auto;
         }
 
         .max-h-screen {
@@ -1080,7 +1081,7 @@
         }
 
         .min-h-screen {
-            min-height: 100vh;
+            min-height: 100%;
         }
     }
 
@@ -1131,7 +1132,7 @@
     /* Fix iOS height issues */
     @supports (-webkit-touch-callout: none) {
         .min-h-screen {
-            min-height: -webkit-fill-available;
+            min-height: 100%;
         }
     }
 

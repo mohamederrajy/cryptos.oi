@@ -131,10 +131,10 @@
                     gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
 
                     userGrowthChart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
+            type: 'line',
+            data: {
                             labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                            datasets: [{
+                datasets: [{
                                 label: 'Total Users',
                                 data: [
                                     Math.floor(stats.users.total * 0.5),
@@ -146,15 +146,15 @@
                                 ],
                                 borderColor: '#3B82F6',
                                 backgroundColor: gradient,
-                                fill: true,
-                                tension: 0.4
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
                                     display: false
                                 }
                             },
@@ -220,18 +220,18 @@
                             plugins: {
                                 legend: {
                                     position: 'top'
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: {
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
                                         callback: (value) => `${value.toLocaleString()} USDT`
-                                    }
-                                }
-                            }
                         }
-                    });
+                    }
+                }
+            }
+        });
                 }
             }
 
@@ -242,10 +242,10 @@
                     if (userActivityChart) userActivityChart.destroy();
 
                     userActivityChart = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
+            type: 'bar',
+            data: {
                             labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                            datasets: [{
+                datasets: [{
                                 label: 'Active Users',
                                 data: [
                                     Math.floor(stats.users.total * 0.7),
@@ -258,20 +258,20 @@
                                 ],
                                 backgroundColor: 'rgba(99, 102, 241, 0.8)',
                                 borderRadius: 6
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
                                     display: false
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: {
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
                                         callback: (value) => `${value.toLocaleString()} users`
                                     }
                                 }
@@ -379,19 +379,19 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <!-- Total Users Card -->
             <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-200">
-                <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center justify-between mb-4">
                     <div class="p-3 bg-blue-50 rounded-lg">
                         <svg class="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                   d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                    </div>
+                                </svg>
+                            </div>
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-medium text-green-500 bg-green-50 px-2.5 py-0.5 rounded-full">
                             +{stats?.users?.regularUsers || 0} new
                         </span>
-                    </div>
-                </div>
+                            </div>
+                        </div>
                 <h3 class="text-sm font-medium text-gray-500">Total Users</h3>
                 <div class="mt-2 flex items-baseline">
                     <p class="text-2xl font-semibold text-gray-900">{stats?.users?.total?.toLocaleString() || 0}</p>
@@ -404,24 +404,24 @@
                 <div class="mt-1 flex items-center justify-between text-xs">
                     <span class="text-gray-500">Admins</span>
                     <span class="font-medium text-gray-900">{stats?.users?.admins || 0}</span>
-                </div>
-            </div>
+                        </div>
+                    </div>
 
             <!-- Total Balance Card -->
             <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-200">
-                <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center justify-between mb-4">
                     <div class="p-3 bg-green-50 rounded-lg">
                         <svg class="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                   d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
+                                </svg>
+                            </div>
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-medium text-green-500 bg-green-50 px-2.5 py-0.5 rounded-full">
                             +2.5%
                         </span>
-                    </div>
-                </div>
+                            </div>
+                        </div>
                 <h3 class="text-sm font-medium text-gray-500">Total Balance</h3>
                 <div class="mt-2 flex items-baseline">
                     <p class="text-2xl font-semibold text-gray-900">{stats?.balance?.totalUSDT?.toLocaleString() || 0}</p>
@@ -440,24 +440,24 @@
                         {(stats?.pendingTransactions?.deposits?.count || 0) + 
                          (stats?.pendingTransactions?.withdrawals?.count || 0)}
                     </span>
-                </div>
-            </div>
+                        </div>
+                    </div>
 
             <!-- Pending Transactions Card -->
             <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-200">
-                <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center justify-between mb-4">
                     <div class="p-3 bg-orange-50 rounded-lg">
                         <svg class="w-6 h-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
+                                </svg>
+                            </div>
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-medium text-orange-500 bg-orange-50 px-2.5 py-0.5 rounded-full">
                             {stats?.pendingTransactions?.deposits?.count || 0} deposits
                         </span>
-                    </div>
-                </div>
+                            </div>
+                        </div>
                 <h3 class="text-sm font-medium text-gray-500">Pending Transactions</h3>
                 <div class="mt-2 flex items-baseline">
                     <p class="text-2xl font-semibold text-gray-900">
@@ -477,18 +477,18 @@
                     <span class="font-medium text-gray-900">
                         {stats?.pendingTransactions?.withdrawals?.totalAmount?.toLocaleString() || 0} USDT
                     </span>
-                </div>
-            </div>
+                        </div>
+                    </div>
 
             <!-- Completed Transactions Card -->
             <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-200">
-                <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center justify-between mb-4">
                     <div class="p-3 bg-purple-50 rounded-lg">
                         <svg class="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                   d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                        </svg>
-                    </div>
+                                </svg>
+                            </div>
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-medium text-purple-500 bg-purple-50 px-2.5 py-0.5 rounded-full">
                             {stats?.completedTransactions?.deposits?.count || 0} completed
@@ -515,9 +515,9 @@
                         {stats?.completedTransactions?.withdrawals?.totalAmount?.toLocaleString() || 0} USDT
                     </span>
                 </div>
-            </div>
-        </div>
-
+                        </div>
+                    </div>
+                    
         {#if isLoading}
             <div class="flex justify-center items-center h-64">
                 <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
@@ -533,7 +533,7 @@
                         {#if chartsLoading}
                             <div class="absolute inset-0 flex items-center justify-center">
                                 <div class="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent"></div>
-                            </div>
+                        </div>
                         {/if}
                         <canvas bind:this={transactionOverviewCanvas}></canvas>
                     </div>
@@ -549,8 +549,8 @@
                         {/if}
                         <canvas bind:this={userGrowthCanvas}></canvas>
                     </div>
-                </div>
-            </div>
+                            </div>
+                        </div>
 
             <!-- Transaction History Chart -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -565,7 +565,7 @@
                         {/if}
                         <canvas bind:this={depositsWithdrawalsCanvas}></canvas>
                     </div>
-                </div>
+                            </div>
 
                 <!-- User Activity Chart -->
                 <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
